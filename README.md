@@ -3,7 +3,7 @@ Emacs package for interaction with TFS source control.
 
 ## Synopsis
 
-`tfs.el` is package to work with Team Foundation Server from Emacs.
+`tfs.el` is a package to work with Team Foundation Server from Emacs.
 This package deals only with the source control aspect, not PBIs, sprints,
 builds, or any other thing contained in TFS.
 
@@ -17,16 +17,16 @@ builds, or any other thing contained in TFS.
 The package is not yet in MELPA (coming soon!!!).
 
 1. Install dependencies (see above)
-2. Place `tfs.el` in your `load-path'.
+2. Place `tfs.el` in your `load-path`.
 3. In your `.emacs` file:
 ```elisp
      (require 'tfs)
      (setq tfs-cmd  "location/of/TEE/tf")
-     (setq tfs-login "/login:domain\\userid,password
+     (setq tfs-login "/login:domain\\userid,password")
            -or-
      (setq tfs-login (getenv "TFSLOGIN"))
 ```
-4. Set local or global key bindings for tfs commands. For example:
+4. Set local or global key bindings for TFS commands. For example:
 ```elisp
      (global-set-key  "\C-ctp" 'tfs-pending-changes)
      (global-set-key  "\C-cto" 'tfs-checkout)
@@ -64,7 +64,7 @@ This is relevant for the following commands: `tfs-add`, `tfs-checkout`,
 People coming from Visual Studio are probably used to the Pending Changes
 window. There's a somewhat similar implementation using 
 tabulated-list-mode and tablist, `tfs-pending-changes`.
-It targes a directory, autocompleting with `projetile` if possible,
+It targes a directory, autocompleting with the `projetile` root if possible,
 else it will autocomplete to the current directory of the buffer.
 Once in the Pending Changes buffer you can:
 
@@ -83,10 +83,15 @@ One advantage of using this tool is that we can keep a process open which
 seems to be much faster than calling the command each time, _except on the
 first call_.
 
+## TODO
+
+* Improve "history" command using tabulated list with "get" (specific version) and "compare" (via ediff)
+* The "changeset" command allows updating information, currently unsupported
+
 ## Special thanks
 
 Dino Chiesa ([GitHub profile](https://github.com/DinoChiesa)) wrote an integration
-layer between Emacs and TFS a few years ago. You can still find this version
+layer between Emacs and TFS a few years ago. You can still find his version
 in EmacsWiki. He was kind enough to give me permission to take his code as
 starting point for the current package. Without his initial package
 and generosity tfs.el as it is now wouldn't exist.
