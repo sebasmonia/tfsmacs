@@ -344,10 +344,10 @@ The file to undo is deteremined this way:
   "Build the parameters for the history command: stopafter and user."
   (let ((user (read-string "Filter by user (blank to ignore): "))
         (stopafter (string-to-number (read-string "Number of items to retrieve (blank for 50): ")))
-        (params nil))
+        (params (list "-recursive")))
     (when (equal stopafter 0)
-      (setq stopafter 25))
-    (setq params (list (concat " -stopafter:" (number-to-string stopafter) " ")))
+      (setq stopafter 50))
+    (add-to-list 'params (concat " -stopafter:" (number-to-string stopafter) " "))
     (when (not (string-equal user ""))
        (add-to-list 'params (format "-user:%s " user)))
      params))
