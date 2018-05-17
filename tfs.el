@@ -290,8 +290,10 @@ The file to get is deteremined this way:
         (concat param "T ")
       (concat param value " "))))
 
-(defun tfs-get-recursive (&optional dirname)
+(defun tfs-get-recursive (&optional dirname force)
   "Perform a recursive tf get on a directory.
+Use FORCE (or prefix arg) to overwrite writeable files not checked out
+and get even up-to-date files.
 
 The directory to get is deteremined this way:
 
@@ -305,10 +307,14 @@ The directory to get is deteremined this way:
 
  - else, prompt the user for a dir."
   (interactive)
-  (let ((dir-to-get (tfs--determine-target-directory dirname "Directory to get: ")))
+  (when current-prefix-arg
+    (setq force t))
+  (let* ((dir-to-get (tfs--determine-target-directory dirname "Directory to get: "))
+         (command (list "get" "-recursive" (tfs--quote-string dir-to-get))))
+    (when force
+      (setq command (append command '("-force"))))
     (when dir-to-get
-        (let* ((command (list "get" (tfs--quote-string dir-to-get) "-recursive")))
-          (tfs--process-command command 'tfs--message-callback)))))
+      (tfs--process-command command 'tfs--message-callback))))
 
 
 (defun tfs-undo (&optional filename)
