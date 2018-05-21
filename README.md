@@ -85,8 +85,9 @@ first call_.
 
 ## TODO
 
-* Improve "history" command using tabulated list with "get" (specific version) and "compare" (via ediff)
+* Improve "history" command using tabulated list with "get" (specific version) and "compare" (via ediff) _(in progress)_
 * The "changeset" command allows updating information, currently unsupported
+* Shelveset operations (create shelve/unshelve/shelve details)
 
 ## Special thanks
 
