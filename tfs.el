@@ -1,6 +1,6 @@
 ;;; tfs.el --- MS Team Foundation Server commands for Emacs.
 ;; Authors    : Dino Chiesa <dpchiesa@outlook.com>, Sebastian Monia <smonia@outlook.com>
-;; Version    : 2018.5.11
+;; Version    : 2018.5.22
 ;;; Commentary:
 ;;
 ;; Basic steps to setup:
@@ -46,15 +46,22 @@
   :group 'tfs)
 
 (defcustom tfs-log-buffer-name "*TFS Log*"
-  "Name of buffer for TFS Messages."
+  "Name of the TFS log buffer."
   :type 'string
   :group 'tfs)
 
 (defvar tfs--status-last-used-dir "")
-(defvar tfs--history-filename "")
+(defvar tfs--history-target "")
+(defvar tfs--file-output-target "TEE CLI")
 (defvar tfs--process-name "TEE CLI")
 (defvar tfs--changeset-buffer-name "*TFS Changeset*")
-(defvar tfs--history-buffer-name "*TFS History*")
+;; These two variables are used to accumulate the output of their respective commands.
+;; Once the output can be parsed, that means the XML is completed and the command finished
+;; processing. Then the variables are emptied for the next call.
+;; I couldn't find a better way since "tf @" doesn't show a prompt. I could try something like
+;; comint-mode but this seemed simpler than changing the way the underlying process works.
+(defvar tfs--history-xml-buffer "")
+(defvar tfs--status-xml-buffer "")
 
 (defun tfs--get-or-create-process ()
   "Create or return the TEE process."
@@ -72,24 +79,30 @@
          (login-param (tfs--get-login-parameter))
          (command-string (concat (mapconcat 'identity command " ") collection-param login-param "\n")))
     (set-process-filter (tfs--get-or-create-process) handler)
-    (tfs--append-to-log "Command input: ")
-    (tfs--append-to-log command-string)
+    (tfs--append-to-log (concat "Command input: " command-string))
     (process-send-string (tfs--get-or-create-process) command-string)))
 
 (defun tfs--get-collection-parameter ()
   "Return the collection parameter if configured, or nil."
-  (when (not (equal tfs-collection-url ""))
+  (when (not (string-equal tfs-collection-url ""))
     (concat " -collection:" tfs-collection-url " ")))
 
 (defun tfs--get-login-parameter ()
   "Return the login parameter if configured, or nil."
-  (when (not (equal tfs-login ""))
+  (when (not (string-equal tfs-login ""))
     (concat " -login:" tfs-login " ")))
 
 (defun tfs--message-callback (process output)
   "Show OUTPUT of PROCESS as message.  Also append to the TFS log."
   (tfs--append-to-log output)
   (message (concat "TFS:\n"  output)))
+
+(defun tfs--to-file-callback (process output)
+  "Writes OUTPUT of PROCESS to a file.
+It is recommended to use 'accept-process-output' after setting this function
+as the process filter."
+  (with-temp-file tfs--file-output-target
+    (insert output)))
 
 (defun tfs--determine-target-files (filename prompt)
   "Determine the name of the file to use in a TF command, or prompt for one.
@@ -118,9 +131,13 @@ use the current directory.  Else use PROMPT to get the user to pick a dir."
    (t
     (expand-file-name (read-directory-name prompt nil nil t)))))
 
-;; -------------------------------------------------------
-;; tfs-checkout
-;; performs a TFS checkout on a file.
+(defun tfs--last-dir-name (path)
+  "Return only the last directory name in PATH.
+From: https://stackoverflow.com/questions/27284851/emacs-lisp-get-directory-name-not-path-from-the-path"
+  (file-name-nondirectory
+   (directory-file-name
+     (file-name-directory path))))
+
 (defun tfs-checkout (&optional filename)
   "Perform a tf checkout (edit).
 
@@ -259,7 +276,7 @@ is being deleted, then this function also kills the buffer."
           (tfs--process-command command 'tfs--message-callback))
       (error "Error tfs-delete: No file"))))
 
-(defun tfs-get (&optional filename)
+(defun tfs-get (&optional filename version)
   "Perform a tf get on a file.
 
 The file to get is deteremined this way:
@@ -273,22 +290,26 @@ The file to get is deteremined this way:
  - when there is a file backing the current buffer, it selects
    the file being visited by the current buffer.
 
- - else, prompt the user for the file."
+ - else, prompt the user for the file.
+
+If VERSION to get is not provided, it will be prompted."
   (interactive)
   (let ((files-to-get (tfs--determine-target-files filename "File(s) to get: ")))
     (when files-to-get
         (let* ((items (mapcar 'tfs--quote-string files-to-get))
-               (version (list (tfs--get-version-param)))
+               (version (list (tfs--get-version-param version)))
                (command (append '("get") files-to-get version)))
           (tfs--process-command command 'tfs--message-callback)))))
 
-(defun tfs--get-version-param ()
-  "Get a version spec string for a command that supports it."
-  (let ((param " -version:")
-        (value (read-string "Version spec (blank for latest): ")))
-    (if (string-equal value "")
+(defun tfs--get-version-param (&optional version)
+  "Get a version spec string for a command that supports it.
+If VERSION is provided return said version as changeset."
+  (let ((param " -version:"))
+    (when (not version)
+      (setq version (read-string "Version spec (blank for latest): ")))
+    (if (string-equal version "")
         (concat param "T ")
-      (concat param value " "))))
+      (concat param version " "))))
 
 (defun tfs-get-recursive (&optional dirname force)
   "Perform a recursive tf get on a directory.
@@ -340,17 +361,78 @@ The file to undo is deteremined this way:
              (when (yes-or-no-p "Undo changes to file(s)? ")
                (tfs--process-command command 'tfs--message-callback))))))
 
-(defun tfs--history-parameters-builder ()
-  "Build the parameters for the history command: stopafter and user."
-  (let ((user (read-string "Filter by user (blank to ignore): "))
-        (stopafter (string-to-number (read-string "Number of items to retrieve (blank for 50): ")))
-        (params (list "-recursive")))
-    (when (equal stopafter 0)
-      (setq stopafter 50))
-    (add-to-list 'params (concat " -stopafter:" (number-to-string stopafter) " "))
-    (when (not (string-equal user ""))
-       (add-to-list 'params (format "-user:%s " user)))
-     params))
+(define-derived-mode tfs-history-mode tabulated-list-mode "TFS history Mode" "Major mode TFS History, displays an item's history and allows compares."
+  (setq tabulated-list-format [("Changeset" 10 t)
+                               ("Type" 8. t)
+                               ("Date" 20 t)
+                               ("Committed by" 30 t)
+                               ("Comment" 0 t)])
+  (setq tabulated-list-padding 1)
+  (setq tabulated-list-sort-key (cons "Changeset" t))
+  (tabulated-list-init-header)
+  (tablist-minor-mode))
+
+(define-key tfs-history-mode-map (kbd "T") 'tfs--history-mode-get-this-version)
+(define-key tfs-history-mode-map (kbd "D") 'tfs--history-mode-changeset-details)
+(define-key tfs-history-mode-map (kbd "C") 'tfs--history-mode-compare)
+
+(defun tfs--history-mode-selected-item-info (item)
+  "Extract from ITEM the changeset number and server path."
+  ; I'm 90% sure there is a better way to do this.
+  (split-string (substring (car (split-string-and-unquote item)) 1 -1)))
+
+(defun tfs--history-mode-get ()
+  "Get the file version marked/selected in the tfs-history-mode buffer."
+  (interactive)
+  (let* ((items (tfs--status-mode-marked-items))
+         (to-get (tfs--history-mode-selected-item-info (car items))))
+    (if (equal (length items) 1)
+        (progn
+          (message (concat "TFS: Getting changeset " (car to-get)))
+          (tfs-get (cadr to-get) (car to-get)))
+      (error "Only one item should be selected for this operation"))))
+
+(defun tfs--history-mode-changeset-details ()
+  "Open changeset details for the selected item in tfs-history-mode."
+  (interactive)
+  (let* ((items (tfs--status-mode-marked-items))
+         (to-get (tfs--history-mode-selected-item-info (car items))))
+    (if (equal (length items) 1)
+        (progn
+          (message (concat "TFS: Getting changeset details " (car to-get)))
+          (tfs-changeset (car to-get)))
+      (error "Only one item should be selected for this operation"))))
+
+(defun tfs--history-mode-compare ()
+  "Compare two selected items in tfs-history-mode."
+  (interactive)
+  (let* ((items (tfs--status-mode-marked-items))
+         (first-item (tfs--history-mode-selected-item-info (car items)))
+         (second-item nil))
+    (if (equal (length items) 2)
+        (progn
+          (setq second-item (tfs--history-mode-selected-item-info (cadr items)))
+          (tfs--history-mode-ediff first-item second-item))
+      (error "Only two items should be selected for this operation"))))
+
+
+(defun tfs--history-mode-ediff (file1 file2)
+  "Compares FILE1 and FILE2 using ediff."
+  (let* ((temp1 (tfs--write-file-to-temp-directory (cadr file1) (car file1)))
+         (temp2 (tfs--write-file-to-temp-directory (cadr file2) (car file2))))
+    (ediff-files temp1 temp2)))
+    
+(defun tfs--write-file-to-temp-directory (path version)
+  "Write the VERSION of PATH to a temporary directory."
+  (let* ((filename (concat temporary-file-directory version ";" (file-name-nondirectory path)))
+         (command (list "print" (concat "-version:" version) path)))
+    (setq tfs--file-output-target filename)
+    (tfs--process-command command 'tfs--to-file-callback)
+    ; if starting a new process wasnt so slow I would start a new one just for "print"
+    ; commads or the stuff I'm "buffering". I also wish the TEE CLI had a signal
+    ; for "end of output"
+    (accept-process-output (get-process tfs--process-name))
+    tfs--file-output-target))
 
 (defun tfs-history (&optional filename)
   "Perform a tf history on a file.
@@ -373,34 +455,79 @@ How the file is determined:
         (let* ((source (car files-for-history))
                (command (list "history" source)))
           (setq command (append command (tfs--history-parameters-builder)))
-          (when (get-buffer tfs--history-buffer-name)
-            (kill-buffer tfs--history-buffer-name))
           (message "TFS: Getting item history...")
-          (setq tfs--history-filename source)
+          (setq tfs--history-target source)
           (tfs--process-command command 'tfs--history-callback))
       (error "Couldn't determine history target"))))
 
+(defun tfs--history-parameters-builder ()
+  "Build the parameters for the history command: stopafter and user."
+  (let ((user (read-string "Filter by user (blank to ignore): "))
+        (stopafter (string-to-number (read-string "Number of items to retrieve (blank for 50): ")))
+        (params (list "-recursive" "-format:xml")))
+    (when (equal stopafter 0)
+      (setq stopafter 50))
+    (add-to-list 'params (concat " -stopafter:" (number-to-string stopafter) " "))
+    (when (not (string-equal user ""))
+       (add-to-list 'params (format "-user:%s " user)))
+     params))
+
 (defun tfs--history-callback (process output)
-  "Show the buffer with the history command result.
+  "Process the output of tf history and display the tfs-history-mode buffer.
 PROCESS is the TEE process
 OUTPUT is the raw output"
-  (let* ((buffer (get-buffer-create tfs--history-buffer-name)))
-    (with-current-buffer buffer
-      (when (equal (buffer-size) 0)
-        (insert (concat "History for item " tfs--history-filename "\n\n")))
-      (insert output)
-      (display-buffer tfs--history-buffer-name t))))
+  (setq tfs--history-xml-buffer (concat tfs--history-xml-buffer output))
+  (let ((parsed-data (tfs--get-history-data-for-tablist tfs--history-xml-buffer)))
+    (when parsed-data
+      (setq tfs--history-xml-buffer "")
+      (let* ((short-target (file-name-nondirectory tfs--history-target))
+             (history-bufname (concat "*TFS History " short-target "*"))
+             (buffer (get-buffer-create history-bufname)))
+             (with-current-buffer buffer
+               (setq tabulated-list-entries parsed-data)
+               (tfs-history-mode)
+               (tablist-revert)
+               (switch-to-buffer buffer))))))
 
-(defun tfs-changeset ()
-  "Gets info on a changeset."
+(defun tfs--get-history-data-for-tablist (xml-status-data)
+  "Format XML-STATUS-DATA from the history command for tabulated list."
+  (with-temp-buffer
+    (insert xml-status-data)
+    (let* ((converted-xml-data (libxml-parse-xml-region (point-min) (point-max)))
+           (changeset-nodes (dom-by-tag converted-xml-data 'changeset)))
+      (mapcar 'tfs--format-history-node changeset-nodes))))
+
+(defun tfs--format-history-node (changeset-node)
+  "Extract from CHANGESET-NODE the info."
+  (let ((changeset (cadr changeset-node))
+        (comment (nth 2 changeset-node))
+        (item (nth 1 (nth 3 changeset-node))))
+    (list
+     (list (alist-get 'id changeset) (alist-get 'server-item item))
+     (vector
+      (alist-get 'id changeset)
+      (alist-get 'change-type item)
+      (tfs--format-history-node-date (alist-get 'date changeset))
+      (alist-get 'committer changeset)
+      (caddr comment)))))
+
+(defun tfs--format-history-node-date (date-string)
+  "Convert DATE-STRING to a better representation."
+  ; Maybe it is worth it to do proper date formatting. TODO?
+  (replace-regexp-in-string "T" " " (substring date-string  0 -9)))
+
+(defun tfs-changeset (&optional version)
+  "Gets info on a changeset.
+If VERSION to get is not provided, it will be prompted."
   (interactive)
-  (let ((version (read-string "Changeset number: (blank for latest): ")))
-    (when (string-equal version "")
+  (when (not version)
+    (setq version (read-string "Changeset number: (blank for latest): ")))
+  (when (string-equal version "")
       (setq version "-latest"))
-    (when (get-buffer tfs--changeset-buffer-name)
-      (kill-buffer tfs--changeset-buffer-name))
-    (message "TFS: Getting changeset details...")
-    (tfs--process-command (list "changeset" version) 'tfs--changeset-callback)))
+  (when (get-buffer tfs--changeset-buffer-name)
+    (kill-buffer tfs--changeset-buffer-name))
+  (message "TFS: Getting changeset details...")
+  (tfs--process-command (list "changeset" version) 'tfs--changeset-callback))
 
 (defun tfs--changeset-callback (process output)
   "Show the buffer with the changeset command result.
@@ -454,6 +581,7 @@ OUTPUT is the raw output"
 (define-key tfs-status-mode-map  (kbd "R") 'tfs--status-mode-revert)
 (define-key tfs-status-mode-map (kbd "g") 'tfs--status-mode-reload-last-dir)
 (define-key tfs-status-mode-map (kbd "RET") 'tfs--status-mode-visit-item)
+;(define-key tfs-status-mode-map (kbd "RET") 'tfs--status-mode-shelve)
 
 (defun tfs-pending-changes ()
   "Perform a recursive tf status.  Displays the result in a separate buffer."
@@ -478,15 +606,18 @@ OUTPUT is the raw output"
   "Process the output of tf status and display the tfs-status-mode buffer.
 PROCESS is the TEE process
 OUTPUT is the raw output"
-  (let* ((status-bufname  "*TFS Pending Changes*")
-         (buffer (get-buffer-create status-bufname)))
-    (with-current-buffer buffer
-      (setq inhibit-read-only t)
-      (erase-buffer)
-      (setq tabulated-list-entries (tfs--get-status-data-for-tablist output))
-      (tfs-status-mode)
-      (tablist-revert)
-      (switch-to-buffer buffer))))
+  (setq tfs--status-xml-buffer (concat tfs--status-xml-buffer output))
+  (let ((parsed-data (tfs--get-status-data-for-tablist tfs--status-xml-buffer)))
+    (when parsed-data
+      (setq tfs--status-xml-buffer "")
+      (let* ((dir-name (tfs--last-dir-name tfs--status-last-used-dir))
+             (status-bufname (concat "*TFS Status " dir-name "*"))
+             (buffer (get-buffer-create status-bufname)))
+        (with-current-buffer buffer
+          (setq tabulated-list-entries parsed-data)
+          (tfs-status-mode)
+          (tablist-revert)
+          (switch-to-buffer buffer))))))
 
 (defun tfs--get-status-data-for-tablist (xml-status-data)
   "Format XML-STATUS-DATA from the status command for tabulated list."
