@@ -56,7 +56,6 @@ raised
 * When none of the above work, prompt for a file
 
 This is relevant for the following commands: `tfs-add`, `tfs-checkout`,
-`tfs-delete`, `tfs-get`,`tfs-get-recursive` (directory instead of file),
 `tfs-history`, `tfs-rename`, `tfs-undo`.
 
 ### Pending Changes
@@ -85,7 +84,6 @@ first call_.
 
 ## TODO
 
-* Improve "history" command using tabulated list with "get" (specific version) and "compare" (via ediff) _(in progress)_
 * The "changeset" command allows updating information, currently unsupported
 * Shelveset operations (create shelve/unshelve/shelve details)
 
