@@ -457,6 +457,7 @@ How the file is determined:
           (setq command (append command (tfs--history-parameters-builder)))
           (message "TFS: Getting item history...")
           (setq tfs--history-target source)
+          (setq tfs--history-xml-buffer "") ; just in case a previous invocation went wrong :)
           (tfs--process-command command 'tfs--history-callback))
       (error "Couldn't determine history target"))))
 
@@ -500,8 +501,11 @@ OUTPUT is the raw output"
 (defun tfs--format-history-node (changeset-node)
   "Extract from CHANGESET-NODE the info."
   (let ((changeset (cadr changeset-node))
-        (comment (nth 2 changeset-node))
-        (item (nth 1 (nth 3 changeset-node))))
+        (comment (car (dom-by-tag changeset-node 'comment)))
+        (item (cadr (car (dom-by-tag changeset-node 'item)))))
+    (setq comment (nth 2 comment))
+    (when (not comment)
+      (setq comment ""))
     (list
      (list (alist-get 'id changeset) (alist-get 'server-item item))
      (vector
@@ -509,7 +513,7 @@ OUTPUT is the raw output"
       (alist-get 'change-type item)
       (tfs--format-history-node-date (alist-get 'date changeset))
       (alist-get 'committer changeset)
-      (caddr comment)))))
+      comment))))
 
 (defun tfs--format-history-node-date (date-string)
   "Convert DATE-STRING to a better representation."
