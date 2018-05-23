@@ -39,16 +39,18 @@ The package is not yet in MELPA (coming soon!!!).
      (global-set-key  "\C-ct+" 'tfs-add)
 ```
 
-## Some notes about the commands
+## Manual
+
+All commands have pretty self-explanatory names. There are a few special modes for pending changes and history described below.
 
 ### Target selection
 
 Some commands alter their behaviour depending on the context:
 
-* If you specify a filename, it is used
+* If you specify a filename, it is used.
 * When called from a `dired` buffer, the marked files are used. If none are 
 marked the file at point is used.
-  * For some commands, only one file can be marked, otherwise an error is 
+  * For some commands, only one file or two files can be marked, otherwise an error is 
 raised
 * The filename of the current buffer, if visiting a file
 * When none of the above work, prompt for a file
@@ -61,7 +63,7 @@ This is relevant for the following commands: `tfs-add`, `tfs-checkout`,
 People coming from Visual Studio are probably used to the Pending Changes
 window. There's a somewhat similar implementation using 
 tabulated-list-mode and tablist, `tfs-pending-changes`.
-It targes a directory, autocompleting with the `projetile` root if possible,
+It targets a directory, autocompleting with the `projetile` root if possible,
 else it will autocomplete to the current directory of the buffer.
 Once in the Pending Changes buffer you can:
 
@@ -69,6 +71,18 @@ Once in the Pending Changes buffer you can:
 * RET to visit the file at point
 * R to Revert/undo changes on the files marked
 * C to Check in the files marked.
+* D to diff the version in your local with the latest on the server (using ediff)
+
+### History
+
+This is another tabulated-list derived mode, launched by `tfs-history`. You can request the history of a single file, or a directory. In the later case you will get recursive history to all items under the dir.
+The commands operate on the file under point, or the file marked if any. The defaults are as follows:
+
+* Mark and unmark files as usual m, U, etc.
+* C to open the changeset details for the item selected
+* T ("This version"), to get the version selected
+* D to diff the two versions marked (using ediff)
+
 
 ## Team Explorer Everywhere vs tf.exe
 
@@ -79,6 +93,8 @@ work item (PBI). Most shops using TFS have this as a requirement.
 One advantage of using this tool is that we can keep a process open which
 seems to be much faster than calling the command each time, _except on the
 first call_.
+
+Retrieving file contents for diffs is synchronous, so those operations will block Emacs. Alternatives are being evaluated, and suggestions are welcomed.
 
 ## TODO
 
