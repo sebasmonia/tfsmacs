@@ -373,19 +373,25 @@ The file to undo is deteremined this way:
   (tablist-minor-mode))
 
 (define-key tfs-history-mode-map (kbd "T") 'tfs--history-mode-get-this-version)
-(define-key tfs-history-mode-map (kbd "D") 'tfs--history-mode-changeset-details)
-(define-key tfs-history-mode-map (kbd "C") 'tfs--history-mode-compare)
+(define-key tfs-history-mode-map (kbd "C") 'tfs--history-mode-changeset-details)
+(define-key tfs-history-mode-map (kbd "D") 'tfs--history-mode-difference)
 
-(defun tfs--history-mode-selected-item-info (item)
-  "Extract from ITEM the changeset number and server path."
-  ; I'm 90% sure there is a better way to do this.
-  (split-string (substring (car (split-string-and-unquote item)) 1 -1)))
 
-(defun tfs--history-mode-get ()
+(defun tfs--history-mode-quote-path (item-pair)
+  "Returns the same ITEM-PAIR with only the path quoted."
+  (list
+   (car item-pair)
+   (tfs--quote-string (cadr item-pair))))
+
+(defun tfs--history-mode-get-marked-items ()
+  "Return the selected items in tfs-history-mode."
+  (mapcar 'tfs--history-mode-quote-path (mapcar 'car (tablist-get-marked-items))))
+
+(defun tfs--history-mode-get-this-version ()
   "Get the file version marked/selected in the tfs-history-mode buffer."
   (interactive)
-  (let* ((items (tfs--status-mode-marked-items))
-         (to-get (tfs--history-mode-selected-item-info (car items))))
+  (let* ((items (tfs--history-mode-get-marked-items))
+         (to-get (car items)))
     (if (equal (length items) 1)
         (progn
           (message (concat "TFS: Getting changeset " (car to-get)))
@@ -395,26 +401,24 @@ The file to undo is deteremined this way:
 (defun tfs--history-mode-changeset-details ()
   "Open changeset details for the selected item in tfs-history-mode."
   (interactive)
-  (let* ((items (tfs--status-mode-marked-items))
-         (to-get (tfs--history-mode-selected-item-info (car items))))
+  (let* ((items (tfs--history-mode-get-marked-items))
+         (to-get (car items)))
     (if (equal (length items) 1)
         (progn
           (message (concat "TFS: Getting changeset details " (car to-get)))
           (tfs-changeset (car to-get)))
       (error "Only one item should be selected for this operation"))))
 
-(defun tfs--history-mode-compare ()
+(defun tfs--history-mode-difference ()
   "Compare two selected items in tfs-history-mode."
   (interactive)
-  (let* ((items (tfs--status-mode-marked-items))
-         (first-item (tfs--history-mode-selected-item-info (car items)))
-         (second-item nil))
+  (let* ((items (tfs--history-mode-get-marked-items))
+         (first-item (car items))
+         (second-item (cadr items)))
     (if (equal (length items) 2)
         (progn
-          (setq second-item (tfs--history-mode-selected-item-info (cadr items)))
           (tfs--history-mode-ediff first-item second-item))
       (error "Only two items should be selected for this operation"))))
-
 
 (defun tfs--history-mode-ediff (file1 file2)
   "Compares FILE1 and FILE2 using ediff."
@@ -424,12 +428,15 @@ The file to undo is deteremined this way:
     
 (defun tfs--write-file-to-temp-directory (path version)
   "Write the VERSION of PATH to a temporary directory."
-  (let* ((filename (concat temporary-file-directory version ";" (file-name-nondirectory path)))
+  ; remove the trailing " in the path after extracting only the filename
+  ; removing " characters before risks breaking a path with " in dir/file names
+  (let* ((only-name (substring (file-name-nondirectory path) 0 -1))
+         (filename (concat temporary-file-directory version ";" only-name))
          (command (list "print" (concat "-version:" version) path)))
     (setq tfs--file-output-target filename)
     (tfs--process-command command 'tfs--to-file-callback)
     ; if starting a new process wasnt so slow I would start a new one just for "print"
-    ; commads or the stuff I'm "buffering". I also wish the TEE CLI had a signal
+    ; commads or the XML  stuff I'm "buffering". I also wish the TEE CLI had a signal
     ; for "end of output"
     (accept-process-output (get-process tfs--process-name))
     tfs--file-output-target))
@@ -558,21 +565,37 @@ OUTPUT is the raw output"
 (defun tfs--status-mode-checkin ()
   "Process files marked in tfs-status-mode for check in."
   (interactive)
-  (let* ((items (tfs--status-mode-marked-items))
+  (let* ((items (tfs--status-mode-get-marked-items))
          (command (append '("checkin") (tfs--checkin-parameters-builder) items)))
     (tfs--process-command command 'tfs--message-callback)))
 
 (defun tfs--status-mode-revert ()
   "Revert (undo) the files marked using tfs-status-mode."
   (interactive)
-  (let* ((items (tfs--status-mode-marked-items))
+  (let* ((items (tfs--status-mode-get-marked-items))
          (quoted-items (mapcar 'tfs--quote-string items))
          (command '("undo")))
     (when (yes-or-no-p "Undo changes to the  files marked? ")
       (setq command (append command quoted-items))
       (tfs--process-command command 'tfs--message-callback))))
 
-(defun tfs--status-mode-marked-items ()
+(defun tfs--status-mode-difference ()
+  "Compares pending change to latest version."
+  (interactive)
+  (let* ((items (tfs--status-mode-get-marked-items))
+         (local (car items))
+         (server (tfs--write-file-to-temp-directory local "T")))
+    (if (equal (length items) 1)
+        (progn
+          (setq local (substring local 1 -1)) ;remove quotes that confuse ediff
+          ;; (tfs--append-to-log "------------")
+          ;; (tfs--append-to-log (prin1-to-string local))
+          ;; (tfs--append-to-log (prin1-to-string server))
+          ;; (tfs--append-to-log "------------"))
+          (ediff-files local server))
+      (error "Select only one file to compare to latest version"))))
+
+(defun tfs--status-mode-get-marked-items ()
   "Obtain only the path of the files selected in the list."
   (mapcar 'tfs--quote-string (mapcar 'car (tablist-get-marked-items))))
 
@@ -585,6 +608,7 @@ OUTPUT is the raw output"
 (define-key tfs-status-mode-map  (kbd "R") 'tfs--status-mode-revert)
 (define-key tfs-status-mode-map (kbd "g") 'tfs--status-mode-reload-last-dir)
 (define-key tfs-status-mode-map (kbd "RET") 'tfs--status-mode-visit-item)
+(define-key tfs-status-mode-map  (kbd "D") 'tfs--status-mode-difference)
 ;(define-key tfs-status-mode-map (kbd "RET") 'tfs--status-mode-shelve)
 
 (defun tfs-pending-changes ()
@@ -599,6 +623,7 @@ OUTPUT is the raw output"
   "Internal call to run the status command  in DIRECTORY."
   (let* ((command (list "status" directory "-recursive" "-nodetect"  "-format:xml")))
     (message "Obtaining list of pending changes...")
+    (setq tfs--status-xml-buffer "") ; just in case a previous invocation went wrong :)
     (tfs--process-command command 'tfs--status-callback)))
 
 (defun tfs--status-mode-reload-last-dir ()
