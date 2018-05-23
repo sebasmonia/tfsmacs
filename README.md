@@ -23,8 +23,6 @@ The package is not yet in MELPA (coming soon!!!).
      (require 'tfs)
      (setq tfs-cmd  "location/of/TEE/tf")
      (setq tfs-login "/login:domain\\userid,password")
-           -or-
-     (setq tfs-login (getenv "TFSLOGIN"))
 ```
 4. Set local or global key bindings for TFS commands. For example:
 ```elisp
