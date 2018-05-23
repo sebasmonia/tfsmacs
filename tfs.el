@@ -1,6 +1,6 @@
 ;;; tfs.el --- MS Team Foundation Server commands for Emacs.
 ;; Authors    : Dino Chiesa <dpchiesa@outlook.com>, Sebastian Monia <smonia@outlook.com>
-;; Version    : 2018.5.22
+;; Version    : 2018.5.23
 ;;; Commentary:
 ;;
 ;; Basic steps to setup:
@@ -10,8 +10,6 @@
 ;;        (require 'tfs)
 ;;        (setq tfs-cmd  "location/of/TEE/tf")
 ;;        (setq tfs-login "/login:domain\\userid,password")
-;;              -or-
-;;        (setq tfs-login (getenv "TFSLOGIN"))
 ;;   4. also in your .emacs file:
 ;;        set local or global key bindings for tfs commands.  Example:
 ;;
@@ -73,6 +71,14 @@
     (tfs--append-to-log "Returned process handle.")
     (get-process tfs--process-name)))
 
+(defun tfs--process-command-sync (command)
+  "Create a new instance of the TEE process to execute COMMAND and block until output is done."
+  (let* ((collection-param (tfs--get-collection-parameter))
+         (login-param (tfs--get-login-parameter))
+         (params (append command (list collection-param login-param))))
+    (tfs--append-to-log (concat "Command input (sync): " (prin1-to-string params)))
+    (apply 'process-lines tfs-cmd params)))
+
 (defun tfs--process-command (command handler)
   "Set HANDLER as the filter function for the TEE CLI process and send COMMAND as string."
   (let* ((collection-param (tfs--get-collection-parameter))
@@ -83,26 +89,21 @@
     (process-send-string (tfs--get-or-create-process) command-string)))
 
 (defun tfs--get-collection-parameter ()
-  "Return the collection parameter if configured, or nil."
-  (when (not (string-equal tfs-collection-url ""))
-    (concat " -collection:" tfs-collection-url " ")))
+  "Return the collection parameter if configured, or empty string."
+  (if (not (string-equal tfs-collection-url ""))
+      (concat " -collection:" tfs-collection-url " ")
+    ""))
 
 (defun tfs--get-login-parameter ()
-  "Return the login parameter if configured, or nil."
-  (when (not (string-equal tfs-login ""))
-    (concat " -login:" tfs-login " ")))
+  "Return the login parameter if configured, or empty string."
+  (if (not (string-equal tfs-login ""))
+      (concat " -login:" tfs-login " ")
+    ""))
 
 (defun tfs--message-callback (process output)
   "Show OUTPUT of PROCESS as message.  Also append to the TFS log."
   (tfs--append-to-log output)
   (message (concat "TFS:\n"  output)))
-
-(defun tfs--to-file-callback (process output)
-  "Writes OUTPUT of PROCESS to a file.
-It is recommended to use 'accept-process-output' after setting this function
-as the process filter."
-  (with-temp-file tfs--file-output-target
-    (insert output)))
 
 (defun tfs--determine-target-files (filename prompt)
   "Determine the name of the file to use in a TF command, or prompt for one.
@@ -138,6 +139,21 @@ From: https://stackoverflow.com/questions/27284851/emacs-lisp-get-directory-name
    (directory-file-name
      (file-name-directory path))))
 
+(defun tfs--write-file-to-temp-directory (path version)
+  "Write the VERSION of PATH to a temporary directory.
+It spins off a new instance of the TEE tool by calling 'tfs--process-command-sync'"
+  ;remove quotes around  path if needed.
+  (when (string-equal "\"" (substring path 0 1))
+    (setq path (substring path 1 -1)))
+  (let* ((only-name (file-name-nondirectory path))
+         (filename (concat temporary-file-directory version ";" only-name))
+         (command (list "print" (concat "-version:" version) path))
+         (content nil))
+    (setq content (tfs--process-command-sync command))
+    (with-temp-file filename
+      (insert (mapconcat 'identity content "\n")))
+    filename))
+
 (defun tfs-checkout (&optional filename)
   "Perform a tf checkout (edit).
 
@@ -162,7 +178,7 @@ writable."
   (let* ((files-to-checkout (tfs--determine-target-files filename "File to checkout: "))
          (command (append '("checkout") files-to-checkout)))
     (when files-to-checkout
-      (message "Checking out file(s)...")
+      (message "TFS: Checking out file(s)...")
       (tfs--process-command command 'tfs--message-callback))))
 
 (defun tfs-checkin ()
@@ -422,24 +438,10 @@ The file to undo is deteremined this way:
 
 (defun tfs--history-mode-ediff (file1 file2)
   "Compares FILE1 and FILE2 using ediff."
+  (message "TFS: Retrieving files to compare. This operation can take a few seconds.")
   (let* ((temp1 (tfs--write-file-to-temp-directory (cadr file1) (car file1)))
          (temp2 (tfs--write-file-to-temp-directory (cadr file2) (car file2))))
     (ediff-files temp1 temp2)))
-    
-(defun tfs--write-file-to-temp-directory (path version)
-  "Write the VERSION of PATH to a temporary directory."
-  ; remove the trailing " in the path after extracting only the filename
-  ; removing " characters before risks breaking a path with " in dir/file names
-  (let* ((only-name (substring (file-name-nondirectory path) 0 -1))
-         (filename (concat temporary-file-directory version ";" only-name))
-         (command (list "print" (concat "-version:" version) path)))
-    (setq tfs--file-output-target filename)
-    (tfs--process-command command 'tfs--to-file-callback)
-    ; if starting a new process wasnt so slow I would start a new one just for "print"
-    ; commads or the XML  stuff I'm "buffering". I also wish the TEE CLI had a signal
-    ; for "end of output"
-    (accept-process-output (get-process tfs--process-name))
-    tfs--file-output-target))
 
 (defun tfs-history (&optional filename)
   "Perform a tf history on a file.
@@ -582,17 +584,13 @@ OUTPUT is the raw output"
 (defun tfs--status-mode-difference ()
   "Compares pending change to latest version."
   (interactive)
-  (let* ((items (tfs--status-mode-get-marked-items))
-         (local (car items))
-         (server (tfs--write-file-to-temp-directory local "T")))
+  (let ((items (tfs--status-mode-get-marked-items)))
     (if (equal (length items) 1)
         (progn
-          (setq local (substring local 1 -1)) ;remove quotes that confuse ediff
-          ;; (tfs--append-to-log "------------")
-          ;; (tfs--append-to-log (prin1-to-string local))
-          ;; (tfs--append-to-log (prin1-to-string server))
-          ;; (tfs--append-to-log "------------"))
-          (ediff-files local server))
+          (message "TFS: Retrieving files to compare. This operation can take a few seconds.")
+          (let* ((local (substring (car items) 1 -1)) ; these items are always quoted, remove the quotes
+                 (server (tfs--write-file-to-temp-directory local "T")))
+            (ediff-files local server)))
       (error "Select only one file to compare to latest version"))))
 
 (defun tfs--status-mode-get-marked-items ()
@@ -622,7 +620,7 @@ OUTPUT is the raw output"
 (defun tfs--pendingchanges (directory)
   "Internal call to run the status command  in DIRECTORY."
   (let* ((command (list "status" directory "-recursive" "-nodetect"  "-format:xml")))
-    (message "Obtaining list of pending changes...")
+    (message "TFS: Obtaining list of pending changes...")
     (setq tfs--status-xml-buffer "") ; just in case a previous invocation went wrong :)
     (tfs--process-command command 'tfs--status-callback)))
 
