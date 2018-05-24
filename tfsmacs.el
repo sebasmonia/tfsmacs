@@ -7,9 +7,9 @@
 ;;
 ;; Basic steps to setup:
 ;;   1. Obtain the Team Explorer Everywhere CLI tool from https://github.com/Microsoft/team-explorer-everywhere/releases
-;;   2. Place `tfs.el' in your `load-path'.
+;;   2. Place `tfsmacs.el' in your `load-path'.
 ;;   3. In your .emacs file:
-;;        (require 'tfs)
+;;        (require 'tfsmacs)
 ;;        (setq tfs-cmd  "location/of/TEE/tf")
 ;;        (setq tfs-login "/login:domain\\userid,password")
 ;;   4. Also in your .emacs file,  set local or global key bindings for tfs commands.
@@ -688,6 +688,6 @@ Intended for internal use only."
     (set-buffer buf)))
 
 
-(provide 'tfs)
+(provide 'tfsmacs)
 
 ;;; tfsmacs.el ends here
