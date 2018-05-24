@@ -1,4 +1,4 @@
-;;; tfs.el --- MS Team Foundation Server commands.
+;;; tfsmacs.el --- MS Team Foundation Server commands.
 ;; URL        : https://github.com/sebasmonia/tfs.el
 ;; Authors    : Dino Chiesa <dpchiesa@outlook.com>, Sebastian Monia <smonia@outlook.com>
 ;; Version    : 20180524
@@ -690,4 +690,4 @@ Intended for internal use only."
 
 (provide 'tfs)
 
-;;; tfs.el ends here
+;;; tfsmacs.el ends here
