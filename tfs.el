@@ -44,7 +44,6 @@
   "URL of the TFS Collection.  If empty, the TEE CLI will assume the collection from the existing folder mappings."
   :type 'string
   :group 'tfs)
-
 (defcustom tfs-log-buffer-name "*TFS Log*"
   "Name of the TFS log buffer."
   :type 'string
@@ -396,17 +395,17 @@ The file to undo is deteremined this way:
 
 
 (defun tfs--history-mode-quote-path (item-pair)
-  "Returns the same ITEM-PAIR with only the path quoted."
+  "Return the same ITEM-PAIR with only the path quoted."
   (list
    (car item-pair)
    (tfs--quote-string (cadr item-pair))))
 
 (defun tfs--history-mode-get-marked-items ()
-  "Return the selected items in tfs-history-mode."
+  "Return the selected items in ‘tfs-history-mode’."
   (mapcar 'tfs--history-mode-quote-path (mapcar 'car (tablist-get-marked-items))))
 
 (defun tfs--history-mode-get-this-version ()
-  "Get the file version marked/selected in the tfs-history-mode buffer."
+  "Get the file version marked/selected in the ‘tfs-history-mode’ buffer."
   (interactive)
   (let* ((items (tfs--history-mode-get-marked-items))
          (to-get (car items)))
@@ -417,7 +416,7 @@ The file to undo is deteremined this way:
       (error "Only one item should be selected for this operation"))))
 
 (defun tfs--history-mode-changeset-details ()
-  "Open changeset details for the selected item in tfs-history-mode."
+  "Open changeset details for the selected item in ‘tfs-history-mode’."
   (interactive)
   (let* ((items (tfs--history-mode-get-marked-items))
          (to-get (car items)))
@@ -428,7 +427,7 @@ The file to undo is deteremined this way:
       (error "Only one item should be selected for this operation"))))
 
 (defun tfs--history-mode-difference ()
-  "Compare two selected items in tfs-history-mode."
+  "Compare two selected items in ‘tfs-history-mode’."
   (interactive)
   (let* ((items (tfs--history-mode-get-marked-items))
          (first-item (car items))
@@ -485,7 +484,7 @@ How the file is determined:
      params))
 
 (defun tfs--history-callback (process output)
-  "Process the output of tf history and display the tfs-history-mode buffer.
+  "Process the output of tf history and display the ‘tfs-history-mode’ buffer.
 PROCESS is the TEE process
 OUTPUT is the raw output"
   (setq tfs--history-xml-buffer (concat tfs--history-xml-buffer output))
@@ -567,14 +566,14 @@ OUTPUT is the raw output"
   (format "\"%s\"" param))
 
 (defun tfs--status-mode-checkin ()
-  "Process files marked in tfs-status-mode for check in."
+  "Process files marked in ‘tfs-status-mode’ for check in."
   (interactive)
   (let* ((items (tfs--status-mode-get-marked-items))
          (command (append '("checkin") (tfs--checkin-parameters-builder) items)))
     (tfs--process-command command 'tfs--message-callback)))
 
 (defun tfs--status-mode-revert ()
-  "Revert (undo) the files marked using tfs-status-mode."
+  "Revert (undo) the files marked using ‘tfs-status-mode’."
   (interactive)
   (let* ((items (tfs--status-mode-get-marked-items))
          (quoted-items (mapcar 'tfs--quote-string items))
@@ -600,7 +599,7 @@ OUTPUT is the raw output"
   (mapcar 'tfs--quote-string (mapcar 'car (tablist-get-marked-items))))
 
 (defun tfs--status-mode-visit-item ()
-  "Visit the file under the cursor in tfs-status-mode."
+  "Visit the file under the cursor in ‘tfs-status-mode’."
   (interactive)
   (find-file (tabulated-list-get-id)))
 
@@ -627,12 +626,12 @@ OUTPUT is the raw output"
     (tfs--process-command command 'tfs--status-callback)))
 
 (defun tfs--status-mode-reload-last-dir ()
-  "Reload tfs-status-mode with the last successful directry invoked."
+  "Reload ‘tfs-status-mode’ with the last successful directry invoked."
   (interactive)
   (tfs--pendingchanges tfs--status-last-used-dir))
 
 (defun tfs--status-callback (process output)
-  "Process the output of tf status and display the tfs-status-mode buffer.
+  "Process the output of tf status and display the ‘tfs-status-mode’ buffer.
 PROCESS is the TEE process
 OUTPUT is the raw output"
   (setq tfs--status-xml-buffer (concat tfs--status-xml-buffer output))
