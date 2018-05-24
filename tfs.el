@@ -1,6 +1,8 @@
-;;; tfs.el --- MS Team Foundation Server commands for Emacs.
+;;; tfs.el --- MS Team Foundation Server commands.
+;; URL        : https://github.com/sebasmonia/tfs.el
 ;; Authors    : Dino Chiesa <dpchiesa@outlook.com>, Sebastian Monia <smonia@outlook.com>
-;; Version    : 2018.5.23
+;; Version    : 20180524
+;; Package-Requires: ((emacs "25") (tablist "0.70"))
 ;;; Commentary:
 ;;
 ;; Basic steps to setup:
@@ -10,8 +12,8 @@
 ;;        (require 'tfs)
 ;;        (setq tfs-cmd  "location/of/TEE/tf")
 ;;        (setq tfs-login "/login:domain\\userid,password")
-;;   4. also in your .emacs file:
-;;        set local or global key bindings for tfs commands.  Example:
+;;   4. Also in your .emacs file,  set local or global key bindings for tfs commands.
+;;      Example:
 ;;
 ;;        (global-set-key  "\C-ctp" 'tfs-pendingchanges)
 ;;        (global-set-key  "\C-cto" 'tfs-checkout)
