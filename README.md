@@ -2,6 +2,23 @@
 This package deals only with the source control aspect, not PBIs, sprints,
 builds, or any other thing contained in TFS.
 
+## Table of contents
+
+<!--ts-->
+   * [Installation](#installation)
+     * [Prerequisites](#prerequisites)
+     * [Install from MELPA](#install-from-melpa)
+     * [Manual installation](#manual-installation)
+     * [Configuration](#configuration)
+   * [Manual](#manual)
+     * [Target selection](#target-selection)
+     * [Pending changes](#pending-changes)
+     * [History](#history)
+   * [Team Explorer Everywhere vs tf.exe](#team-explorer-everywhere-vs-tfexe)
+   * [TODO](#todo)
+   * [Special thanks](#special-thanks)
+<!--te-->
+
 ## Installation
 
 ### Prerequisites
