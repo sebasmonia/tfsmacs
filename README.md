@@ -1,30 +1,32 @@
-# tfs.el
-Emacs package for interaction with TFS source control.
-
-## Synopsis
-
 `tfs.el` is a package to work with Team Foundation Server from Emacs.
 This package deals only with the source control aspect, not PBIs, sprints,
 builds, or any other thing contained in TFS.
 
-## Dependencies
+## Installation
 
- * [Team Explorer Everywhere CLI](https://github.com/Microsoft/team-explorer-everywhere/releases).
- * [tablist](https://github.com/politza/tablist)
+### Prerequisites
 
-## Quickstart
+The first step is to get the "Team Explorer Everywhere Command Line Client" or "TEE CLC" from the [Team Explorer Everywhere releases page](https://github.com/Microsoft/team-explorer-everywhere/releases). More installation instructions can be found in the README for the repo.
+Documentation specific to the TEE CLI can be a bit hard to find as most web searches return info on the regular TF.exe that is shipped with Visual Studio (to add to the confusion, both tools share a lot of commands). The reference specific to TEE CLI on MS Docs is [here](https://docs.microsoft.com/en-us/previous-versions/visualstudio/visual-studio-2010/gg413282(v=vs.100)).
+
+### Install from MELPA 
 
 The package is not yet in MELPA (coming soon!!!).
 
-1. Install dependencies (see above)
+### Manual installation
+
+1. Install the package [tablist](https://github.com/politza/tablist) and then 
 2. Place `tfs.el` in your `load-path`.
-3. In your `.emacs` file:
+
+### Configuration 
+
+1. In your `.emacs` file:
 ```elisp
      (require 'tfs)
      (setq tfs-cmd  "location/of/TEE/tf")
      (setq tfs-login "/login:domain\\userid,password")
 ```
-4. Set local or global key bindings for TFS commands. For example:
+2. Set local or global key bindings for TFS commands. For example:
 ```elisp
      (global-set-key  "\C-ctp" 'tfs-pending-changes)
      (global-set-key  "\C-cto" 'tfs-checkout)
@@ -75,8 +77,11 @@ Once in the Pending Changes buffer you can:
 
 ### History
 
-This is another tabulated-list derived mode, launched by `tfs-history`. You can request the history of a single file, or a directory. In the later case you will get recursive history to all items under the dir.
-The commands operate on the file under point, or the file marked if any. The defaults are as follows:
+This is another tabulated-list derived mode, launched by `tfs-history`. You can
+request the history of a single file, or a directory. In the later case you will
+get recursive history to all items under the dir.
+The commands operate on the file under point, or the file marked if any. The 
+defaults are as follows:
 
 * Mark and unmark files as usual m, U, etc.
 * C to open the changeset details for the item selected
@@ -94,12 +99,15 @@ One advantage of using this tool is that we can keep a process open which
 seems to be much faster than calling the command each time, _except on the
 first call_.
 
-Retrieving file contents for diffs is synchronous, so those operations will block Emacs. Alternatives are being evaluated, and suggestions are welcomed.
+Retrieving file contents for diffs is synchronous, so those operations will block
+Emacs. Alternatives are being evaluated, and suggestions are welcomed.
 
 ## TODO
 
 * The "changeset" command allows updating information, currently unsupported
 * Shelveset operations (create shelve/unshelve/shelve details)
+* Revisit synchronous code to download files. An alternative suggested was to have
+a timeout of 0.1/0.2 seconds before assuming the output is completed.
 
 ## Special thanks
 
