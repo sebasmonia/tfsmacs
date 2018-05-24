@@ -1,4 +1,4 @@
-`tfs.el` is a package to work with Team Foundation Server from Emacs.
+`tfsmacs` is a package to work with Team Foundation Server from Emacs.
 This package deals only with the source control aspect, not PBIs, sprints,
 builds, or any other thing contained in TFS.
 
@@ -33,13 +33,13 @@ The package is not yet in MELPA (coming soon!!!).
 ### Manual installation
 
 1. Install the package [tablist](https://github.com/politza/tablist) and then 
-2. Place `tfs.el` in your `load-path`.
+2. Place `tfsmacs.el` in your `load-path`.
 
 ### Configuration 
 
 1. In your `.emacs` file:
 ```elisp
-     (require 'tfs)
+     (require 'tfsmacs)
      (setq tfs-cmd  "location/of/TEE/tf")
      (setq tfs-login "/login:domain\\userid,password")
 ```
