@@ -125,6 +125,9 @@ Emacs. Alternatives are being evaluated, and suggestions are welcomed.
 * Shelveset operations (create shelve/unshelve/shelve details)
 * Revisit synchronous code to download files. An alternative suggested was to have
 a timeout of 0.1/0.2 seconds before assuming the output is completed.
+* Create shelves from tfs-pending-changes
+* Unshelve. Will require listing shelves (by user?) then unshelve.
+* Label & get by label
 
 ## Special thanks
 
