@@ -49,10 +49,9 @@
   :type 'string
   :group 'tfs)
 
-(defvar tfs--status-last-used-dir "")
+(defvar tfs--buffer-status-dir nil)
 (defvar tfs--history-target "")
-(defvar tfs--file-output-target "TEE CLI")
-(defvar tfs--process-name "TEE CLI")
+(defvar tfs--process-name "TEECLI")
 (defvar tfs--changeset-buffer-name "*TFS Changeset*")
 ;; These two variables are used to accumulate the output of their respective commands.
 ;; Once the output can be parsed, that means the XML is completed and the command finished
@@ -133,7 +132,7 @@ use the current directory.  Else use PROMPT to get the user to pick a dir."
    (t
     (expand-file-name (read-directory-name prompt nil nil t)))))
 
-(defun tfs--last-dir-name (path)
+(defun tfs--get-last-dir-name (path)
   "Return only the last directory name in PATH.
 From: https://stackoverflow.com/questions/27284851/emacs-lisp-get-directory-name-not-path-from-the-path"
   (file-name-nondirectory
@@ -556,6 +555,7 @@ OUTPUT is the raw output"
   (setq tabulated-list-format [("Change" 7 t)
                                ("Local Path" 100 t)
                                ("Server Path" 0 t)])
+  (set (make-local-variable 'tfs--buffer-status-dir) nil)
   (setq tabulated-list-padding 1)
   (setq tabulated-list-sort-key (cons "Local Path" nil))
   (tabulated-list-init-header)
@@ -605,7 +605,7 @@ OUTPUT is the raw output"
 
 (define-key tfs-status-mode-map (kbd "C") 'tfs--status-mode-checkin)
 (define-key tfs-status-mode-map  (kbd "R") 'tfs--status-mode-revert)
-(define-key tfs-status-mode-map (kbd "g") 'tfs--status-mode-reload-last-dir)
+(define-key tfs-status-mode-map (kbd "g") 'tfs-pending-changes)
 (define-key tfs-status-mode-map (kbd "RET") 'tfs--status-mode-visit-item)
 (define-key tfs-status-mode-map  (kbd "D") 'tfs--status-mode-difference)
 ;(define-key tfs-status-mode-map (kbd "RET") 'tfs--status-mode-shelve)
@@ -613,39 +613,52 @@ OUTPUT is the raw output"
 (defun tfs-pending-changes ()
   "Perform a recursive tf status.  Displays the result in a separate buffer."
   (interactive)
-  (let* ((status-dir (tfs--select-status-directory)))
-    ; To refresh the status when using "g" in the changes buffer
-    (setq tfs--status-last-used-dir status-dir)
-    (tfs--status-mode-reload-last-dir)))
+  (with-current-buffer (current-buffer)
+    (if (string-equal major-mode "tfs-status-mode")
+        (tfs--get-pending-changes tfs--buffer-status-dir)
+      (progn
+        (let* ((status-dir (tfs--select-status-directory))
+               (buffer (get-buffer-create "*TFS Status [running]*")))
+          (with-current-buffer buffer
+            (setq tfs--buffer-status-dir status-dir)
+            (tfs--get-pending-changes status-dir)
+            (switch-to-buffer buffer)))))))
 
-(defun tfs--pendingchanges (directory)
-  "Internal call to run the status command  in DIRECTORY."
+(defun tfs--get-pending-changes (directory)
+  "Internal call to run the status command in DIRECTORY."
   (let* ((command (list "status" directory "-recursive" "-nodetect"  "-format:xml")))
     (message "TFS: Obtaining list of pending changes...")
     (setq tfs--status-xml-buffer "") ; just in case a previous invocation went wrong :)
     (tfs--process-command command 'tfs--status-callback)))
-
-(defun tfs--status-mode-reload-last-dir ()
-  "Reload ‘tfs-status-mode’ with the last successful directry invoked."
-  (interactive)
-  (tfs--pendingchanges tfs--status-last-used-dir))
 
 (defun tfs--status-callback (process output)
   "Process the output of tf status and display the ‘tfs-status-mode’ buffer.
 PROCESS is the TEE process
 OUTPUT is the raw output"
   (setq tfs--status-xml-buffer (concat tfs--status-xml-buffer output))
-  (let ((parsed-data (tfs--get-status-data-for-tablist tfs--status-xml-buffer)))
-    (when parsed-data
+  (when (tfs--status-xml-complete)
+    (let ((parsed-data (tfs--get-status-data-for-tablist tfs--status-xml-buffer)))
       (setq tfs--status-xml-buffer "")
-      (let* ((dir-name (tfs--last-dir-name tfs--status-last-used-dir))
-             (status-bufname (concat "*TFS Status " dir-name "*"))
-             (buffer (get-buffer-create status-bufname)))
+      (let* ((directory tfs--buffer-status-dir)
+             (last-dir-in-path (tfs--get-last-dir-name directory))
+             (status-bufname (concat "*TFS Status " last-dir-in-path "*"))
+             (buffer (get-buffer status-bufname)))
+        (when (not buffer)
+          (setq buffer (get-buffer "*TFS Status [running]*"))
+          (erase-buffer))
         (with-current-buffer buffer
-          (setq tabulated-list-entries parsed-data)
           (tfs-status-mode)
+          ;Buffer local vars
+          (setq tabulated-list-entries parsed-data)
+          (setq tfs--buffer-status-dir directory)
           (tablist-revert)
+          (rename-buffer status-bufname)
           (switch-to-buffer buffer))))))
+
+(defun tfs--status-xml-complete ()
+  "Confirm that the status closing tag is present."
+  (or (string-match-p (regexp-quote "</status>") tfs--status-xml-buffer)
+      (string-match-p (regexp-quote "<status/>") tfs--status-xml-buffer)))
 
 (defun tfs--get-status-data-for-tablist (xml-status-data)
   "Format XML-STATUS-DATA from the status command for tabulated list."
