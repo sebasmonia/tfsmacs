@@ -12,9 +12,10 @@
 ;;        (require 'tfsmacs)
 ;;        (setq tfsmacs-cmd  "location/of/TEE/tf")
 ;;        (setq tfsmacs-login "/login:domain\\userid,password")
-;;   4. Also in your .emacs file,  set local or global key bindings for tfs commands.
+;;   4. Also in your .emacs file,  set local or global key bindings for tfs commands.  Or use the provided keymap.
 ;;      Example:
-;;
+;;        (global-set-key  "\C-ct" 'tfsmacs-map)
+;;      OR:
 ;;        (global-set-key  "\C-ctp" 'tfsmacs-pendingchanges)
 ;;        (global-set-key  "\C-cto" 'tfsmacs-checkout)
 ;;        (global-set-key  "\C-cti" 'tfsmacs-checkin)
@@ -61,6 +62,19 @@
 ;; comint-mode but this seemed simpler than changing the way the underlying process works.
 (defvar tfsmacs--history-xml-buffer "")
 (defvar tfsmacs--status-xml-buffer "")
+
+(define-prefix-command 'tfsmacs-map)
+(define-key tfsmacs-map "p" 'tfsmacs-pending-changes)
+(define-key tfsmacs-map "o" 'tfsmacs-checkout)
+(define-key tfsmacs-map "i" 'tfsmacs-checkin)
+(define-key tfsmacs-map "r" 'tfsmacs-rename)
+(define-key tfsmacs-map "g" 'tfsmacs-get)
+(define-key tfsmacs-map "d" 'tfsmacs-get-recursive)
+(define-key tfsmacs-map "h" 'tfsmacs-history)
+(define-key tfsmacs-map "c" 'tfsmacs-changeset)
+(define-key tfsmacs-map "u" 'tfsmacs-undo)
+(define-key tfsmacs-map "-" 'tfsmacs-delete)
+(define-key tfsmacs-map "+" 'tfsmacs-add)
 
 (defun tfsmacs--get-or-create-process ()
   "Create or return the TEE process."

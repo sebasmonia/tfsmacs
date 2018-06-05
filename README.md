@@ -43,19 +43,9 @@ The package is not yet in MELPA (coming soon!!!).
      (setq tfsmacs-cmd  "location/of/TEE/tf")
      (setq tfsmacs-login "/login:domain\\userid,password")
 ```
-2. Set local or global key bindings for TFS commands. For example:
+2. There's a keymap provided for convenience, you can also bind the individual commands of course:
 ```elisp
-     (global-set-key  "\C-ctp" 'tfsmacs-pending-changes)
-     (global-set-key  "\C-cto" 'tfsmacs-checkout)
-     (global-set-key  "\C-cti" 'tfsmacs-checkin)
-     (global-set-key  "\C-ctr" 'tfsmacs-rename)
-     (global-set-key  "\C-ctg" 'tfsmacs-get)
-     (global-set-key  "\C-ctd" 'tfsmacs-get-recursive)
-     (global-set-key  "\C-cth" 'tfsmacs-history)
-     (global-set-key  "\C-ctc" 'tfsmacs-changeset)
-     (global-set-key  "\C-ctu" 'tfsmacs-undo)
-     (global-set-key  "\C-ct-" 'tfsmacs-delete)
-     (global-set-key  "\C-ct+" 'tfsmacs-add)
+     (global-set-key  "\C-ct" 'tfsmacs-map)
 ```
 
 ## Manual
