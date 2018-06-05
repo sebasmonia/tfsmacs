@@ -40,22 +40,22 @@ The package is not yet in MELPA (coming soon!!!).
 1. In your `.emacs` file:
 ```elisp
      (require 'tfsmacs)
-     (setq tfs-cmd  "location/of/TEE/tf")
-     (setq tfs-login "/login:domain\\userid,password")
+     (setq tfsmacs-cmd  "location/of/TEE/tf")
+     (setq tfsmacs-login "/login:domain\\userid,password")
 ```
 2. Set local or global key bindings for TFS commands. For example:
 ```elisp
-     (global-set-key  "\C-ctp" 'tfs-pending-changes)
-     (global-set-key  "\C-cto" 'tfs-checkout)
-     (global-set-key  "\C-cti" 'tfs-checkin)
-     (global-set-key  "\C-ctr" 'tfs-rename)
-     (global-set-key  "\C-ctg" 'tfs-get)
-     (global-set-key  "\C-ctd" 'tfs-get-recursive)
-     (global-set-key  "\C-cth" 'tfs-history)
-     (global-set-key  "\C-ctc" 'tfs-changeset)
-     (global-set-key  "\C-ctu" 'tfs-undo)
-     (global-set-key  "\C-ct-" 'tfs-delete)
-     (global-set-key  "\C-ct+" 'tfs-add)
+     (global-set-key  "\C-ctp" 'tfsmacs-pending-changes)
+     (global-set-key  "\C-cto" 'tfsmacs-checkout)
+     (global-set-key  "\C-cti" 'tfsmacs-checkin)
+     (global-set-key  "\C-ctr" 'tfsmacs-rename)
+     (global-set-key  "\C-ctg" 'tfsmacs-get)
+     (global-set-key  "\C-ctd" 'tfsmacs-get-recursive)
+     (global-set-key  "\C-cth" 'tfsmacs-history)
+     (global-set-key  "\C-ctc" 'tfsmacs-changeset)
+     (global-set-key  "\C-ctu" 'tfsmacs-undo)
+     (global-set-key  "\C-ct-" 'tfsmacs-delete)
+     (global-set-key  "\C-ct+" 'tfsmacs-add)
 ```
 
 ## Manual
@@ -74,14 +74,14 @@ raised
 * The filename of the current buffer, if visiting a file
 * When none of the above work, prompt for a file
 
-This is relevant for the following commands: `tfs-add`, `tfs-checkout`,
-`tfs-history`, `tfs-rename`, `tfs-undo`.
+This is relevant for the following commands: `tfsmacs-add`, `tfsmacs-checkout`,
+`tfsmacs-history`, `tfsmacs-rename`, `tfsmacs-undo`.
 
 ### Pending Changes
 
 People coming from Visual Studio are probably used to the Pending Changes
 window. There's a somewhat similar implementation using 
-tabulated-list-mode and tablist, `tfs-pending-changes`.
+tabulated-list-mode and tablist, `tfsmacs-pending-changes`.
 It targets a directory, autocompleting with the `projetile` root if possible,
 else it will autocomplete to the current directory of the buffer.
 Once in the Pending Changes buffer you can:
@@ -94,7 +94,7 @@ Once in the Pending Changes buffer you can:
 
 ### History
 
-This is another tabulated-list derived mode, launched by `tfs-history`. You can
+This is another tabulated-list derived mode, launched by `tfsmacs-history`. You can
 request the history of a single file, or a directory. In the later case you will
 get recursive history to all items under the dir.
 The commands operate on the file under point, or the file marked if any. The 
@@ -125,7 +125,7 @@ Emacs. Alternatives are being evaluated, and suggestions are welcomed.
 * Shelveset operations (create shelve/unshelve/shelve details)
 * Revisit synchronous code to download files. An alternative suggested was to have
 a timeout of 0.1/0.2 seconds before assuming the output is completed.
-* Create shelves from tfs-pending-changes
+* Create shelves from tfsmacs-pending-changes
 * Unshelve. Will require listing shelves (by user?) then unshelve.
 * Label & get by label
 

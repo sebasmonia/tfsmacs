@@ -10,102 +10,103 @@
 ;;   2. Place `tfsmacs.el' in your `load-path'.
 ;;   3. In your .emacs file:
 ;;        (require 'tfsmacs)
-;;        (setq tfs-cmd  "location/of/TEE/tf")
-;;        (setq tfs-login "/login:domain\\userid,password")
+;;        (setq tfsmacs-cmd  "location/of/TEE/tf")
+;;        (setq tfsmacs-login "/login:domain\\userid,password")
 ;;   4. Also in your .emacs file,  set local or global key bindings for tfs commands.
 ;;      Example:
 ;;
-;;        (global-set-key  "\C-ctp" 'tfs-pendingchanges)
-;;        (global-set-key  "\C-cto" 'tfs-checkout)
-;;        (global-set-key  "\C-cti" 'tfs-checkin)
-;;        (global-set-key  "\C-ctr" 'tfs-rename)
-;;        (global-set-key  "\C-ctg" 'tfs-get)
-;;        (global-set-key  "\C-cth" 'tfs-history)
-;;        (global-set-key  "\C-ctc" 'tfs-changeset)
-;;        (global-set-key  "\C-ctu" 'tfs-undo)
-;;        (global-set-key  "\C-ct-" 'tfs-delete)
-;;        (global-set-key  "\C-ct+" 'tfs-add)
+;;        (global-set-key  "\C-ctp" 'tfsmacs-pendingchanges)
+;;        (global-set-key  "\C-cto" 'tfsmacs-checkout)
+;;        (global-set-key  "\C-cti" 'tfsmacs-checkin)
+;;        (global-set-key  "\C-ctr" 'tfsmacs-rename)
+;;        (global-set-key  "\C-ctg" 'tfsmacs-get)
+;;        (global-set-key  "\C-cth" 'tfsmacs-history)
+;;        (global-set-key  "\C-ctc" 'tfsmacs-changeset)
+;;        (global-set-key  "\C-ctu" 'tfsmacs-undo)
+;;        (global-set-key  "\C-ct-" 'tfsmacs-delete)
+;;        (global-set-key  "\C-ct+" 'tfsmacs-add)
 ;;; Code:
 
 (require 'dom)
 (require 'tablist)
 
-(defcustom tfs-cmd  "C:/HomeFolder/TEE-CLC-14.134.0/tf.cmd"
+(defcustom tfsmacs-cmd  "C:/HomeFolder/TEE-CLC-14.134.0/tf.cmd"
   "Location of the 'Team Explorer Everywhere' command line tool."
   :type 'string
-  :group 'tfs)
+  :group 'tfsmacs)
 
-(defcustom tfs-login ""
+(defcustom tfsmacs-login ""
   "Values for the -login option.  Ignored if empty."
   :type 'string
-  :group 'tfs)
+  :group 'tfsmacs)
 
-(defcustom tfs-collection-url ""
+(defcustom tfsmacs-collection-url ""
   "URL of the TFS Collection.  If empty, the TEE CLI will assume the collection from the existing folder mappings."
   :type 'string
-  :group 'tfs)
-(defcustom tfs-log-buffer-name "*TFS Log*"
+  :group 'tfsmacs)
+
+(defcustom tfsmacs-log-buffer-name "*TFS Log*"
   "Name of the TFS log buffer."
   :type 'string
-  :group 'tfs)
+  :group 'tfsmacs)
 
-(defvar tfs--buffer-status-dir nil)
-(defvar tfs--history-target "")
-(defvar tfs--process-name "TEECLI")
-(defvar tfs--changeset-buffer-name "*TFS Changeset*")
+(defvar tfsmacs--buffer-status-dir nil)
+(defvar tfsmacs--history-target "")
+(defvar tfsmacs--process-name "TEECLI")
+(defvar tfsmacs--changeset-buffer-name "*TFS Changeset*")
 ;; These two variables are used to accumulate the output of their respective commands.
 ;; Once the output can be parsed, that means the XML is completed and the command finished
 ;; processing. Then the variables are emptied for the next call.
 ;; I couldn't find a better way since "tf @" doesn't show a prompt. I could try something like
 ;; comint-mode but this seemed simpler than changing the way the underlying process works.
-(defvar tfs--history-xml-buffer "")
-(defvar tfs--status-xml-buffer "")
+(defvar tfsmacs--history-xml-buffer "")
+(defvar tfsmacs--status-xml-buffer "")
 
-(defun tfs--get-or-create-process ()
+(defun tfsmacs--get-or-create-process ()
   "Create or return the TEE process."
-  (let ((buffer-name (concat "*" tfs--process-name "*")))
-    (when (not (get-process tfs--process-name))
-      (tfs--append-to-log "Creating new process instance...")
-      (start-process tfs--process-name buffer-name
-                     tfs-cmd "@"))
-    (tfs--append-to-log "Returned process handle.")
-    (get-process tfs--process-name)))
+  (let ((buffer-name (concat "*" tfsmacs--process-name "*")))
+    (when (not (get-process tfsmacs--process-name))
+      (tfsmacs--append-to-log "Creating new process instance...")
+      (start-process tfsmacs--process-name buffer-name
+                     tfsmacs-cmd "@"))
+    (tfsmacs--append-to-log "Returned process handle.")
+    (get-process tfsmacs--process-name)))
 
-(defun tfs--process-command-sync (command)
+(defun tfsmacs--process-command-sync (command)
   "Create a new instance of the TEE process to execute COMMAND and block until output is done."
-  (let* ((collection-param (tfs--get-collection-parameter))
-         (login-param (tfs--get-login-parameter))
+  (let* ((collection-param (tfsmacs--get-collection-parameter))
+         (login-param (tfsmacs--get-login-parameter))
          (params (append command (list collection-param login-param))))
-    (tfs--append-to-log (concat "Command input (sync): " (prin1-to-string params)))
-    (apply 'process-lines tfs-cmd params)))
+    (tfsmacs--append-to-log (concat "Command input (sync): " (prin1-to-string params)))
+    (apply 'process-lines tfsmacs-cmd params)))
 
-(defun tfs--process-command (command handler)
+(defun tfsmacs--process-command (command handler)
   "Set HANDLER as the filter function for the TEE CLI process and send COMMAND as string."
-  (let* ((collection-param (tfs--get-collection-parameter))
-         (login-param (tfs--get-login-parameter))
+  (let* ((collection-param (tfsmacs--get-collection-parameter))
+         (login-param (tfsmacs--get-login-parameter))
          (command-string (concat (mapconcat 'identity command " ") collection-param login-param "\n")))
-    (set-process-filter (tfs--get-or-create-process) handler)
-    (tfs--append-to-log (concat "Command input: " command-string))
-    (process-send-string (tfs--get-or-create-process) command-string)))
+    (set-process-filter (tfsmacs--get-or-create-process) handler)
+    (tfsmacs--append-to-log (concat "Command input: " command-string))
+    (process-send-string (tfsmacs--get-or-create-process) command-string)))
 
-(defun tfs--get-collection-parameter ()
+(defun tfsmacs--get-collection-parameter ()
   "Return the collection parameter if configured, or empty string."
-  (if (not (string-equal tfs-collection-url ""))
-      (concat " -collection:" tfs-collection-url " ")
+  (if (not (string-equal tfsmacs-collection-url ""))
+      (concat " -collection:" tfsmacs-collection-url " ")
     ""))
 
-(defun tfs--get-login-parameter ()
+(defun tfsmacs--get-login-parameter ()
   "Return the login parameter if configured, or empty string."
-  (if (not (string-equal tfs-login ""))
-      (concat " -login:" tfs-login " ")
+  (if (not (string-equal tfsmacs-login ""))
+      (concat " -login:" tfsmacs-login " ")
     ""))
 
-(defun tfs--message-callback (process output)
+(defun tfsmacs--message-callback (process output)
   "Show OUTPUT of PROCESS as message.  Also append to the TFS log."
-  (tfs--append-to-log output)
+  (tfsmacs--append-to-log output)
   (message (concat "TFS:\n"  output)))
 
-(defun tfs--determine-target-files (filename prompt)
+(defun tfsmacs--determine-target-files (filename prompt)
   "Determine the name of the file to use in a TF command, or prompt for one.
 If FILENAME, use it directly.  If called from a dired buffer it tries to
 use the selection or the current file.  Else use PROMPT to get the user to
@@ -120,7 +121,7 @@ pick a file."
    (t
     (list (expand-file-name (read-file-name prompt nil nil t))))))
 
-(defun tfs--determine-target-directory (dirname  prompt)
+(defun tfsmacs--determine-target-directory (dirname  prompt)
   "Determine the name of a directory to use in a TF command, or prompt for one.
 If DIRNAME, use it directly.  If called from a dired buffer it tries to
 use the current directory.  Else use PROMPT to get the user to pick a dir."
@@ -132,16 +133,16 @@ use the current directory.  Else use PROMPT to get the user to pick a dir."
    (t
     (expand-file-name (read-directory-name prompt nil nil t)))))
 
-(defun tfs--get-last-dir-name (path)
+(defun tfsmacs--get-last-dir-name (path)
   "Return only the last directory name in PATH.
 From: https://stackoverflow.com/questions/27284851/emacs-lisp-get-directory-name-not-path-from-the-path"
   (file-name-nondirectory
    (directory-file-name
      (file-name-directory path))))
 
-(defun tfs--write-file-to-temp-directory (path version)
+(defun tfsmacs--write-file-to-temp-directory (path version)
   "Write the VERSION of PATH to a temporary directory.
-It spins off a new instance of the TEE tool by calling 'tfs--process-command-sync'"
+It spins off a new instance of the TEE tool by calling 'tfsmacs--process-command-sync'"
   ;remove quotes around  path if needed.
   (when (string-equal "\"" (substring path 0 1))
     (setq path (substring path 1 -1)))
@@ -149,12 +150,12 @@ It spins off a new instance of the TEE tool by calling 'tfs--process-command-syn
          (filename (concat temporary-file-directory version ";" only-name))
          (command (list "print" (concat "-version:" version) path))
          (content nil))
-    (setq content (tfs--process-command-sync command))
+    (setq content (tfsmacs--process-command-sync command))
     (with-temp-file filename
       (insert (mapconcat 'identity content "\n")))
     filename))
 
-(defun tfs-checkout (&optional filename)
+(defun tfsmacs-checkout (&optional filename)
   "Perform a tf checkout (edit).
 
 The file to checkout is deteremined this way:
@@ -175,13 +176,13 @@ Checkout will occur only if the file is non-writable before the
 call; checkout will fail if the specified file is currently
 writable."
   (interactive)
-  (let* ((files-to-checkout (tfs--determine-target-files filename "File to checkout: "))
+  (let* ((files-to-checkout (tfsmacs--determine-target-files filename "File to checkout: "))
          (command (append '("checkout") files-to-checkout)))
     (when files-to-checkout
       (message "TFS: Checking out file(s)...")
-      (tfs--process-command command 'tfs--message-callback))))
+      (tfsmacs--process-command command 'tfsmacs--message-callback))))
 
-(defun tfs-checkin ()
+(defun tfsmacs-checkin ()
   "Perform a tf checkin on the file being visited by the current buffer.
 Checkin happens only if the file is writable now.  This
 function allows you to specify a checkin comment.  It checks in
@@ -190,24 +191,24 @@ other files will not be checked in."
   (interactive)
   (if buffer-file-name
       (let* ((command (append '("checkin")
-                              (tfs--checkin-parameters-builder)
-                              (list (tfs--quote-string buffer-file-name)))))
-        (tfs--process-command command 'tfs--message-callback))
-    (error "Error tfs-checkin: No file")))
+                              (tfsmacs--checkin-parameters-builder)
+                              (list (tfsmacs--quote-string buffer-file-name)))))
+        (tfsmacs--process-command command 'tfsmacs--message-callback))
+    (error "Error tfsmacs-checkin: No file")))
 
-(defun tfs--checkin-parameters-builder ()
+(defun tfsmacs--checkin-parameters-builder ()
   "Build the parameters for the checkin command: comment, work item ID, overrie."
   (let* ((comment (read-string "Check in comment: "))
         (wid (read-string "Workitem ID (empty to skip): "))
         (override  (read-string "Override reason (empty to skip): "))
-        (params (list (format "-comment:%s" (tfs--quote-string comment)))))
+        (params (list (format "-comment:%s" (tfsmacs--quote-string comment)))))
      (when (not (string-equal wid ""))
        (add-to-list 'params (format "-associate:%s" wid)))
      (when (not (string-equal override ""))
-       (add-to-list 'params (format "-override:%s" (tfs--quote-string override))))
+       (add-to-list 'params (format "-override:%s" (tfsmacs--quote-string override))))
      params))
 
-(defun tfs-rename (&optional filename new-name)
+(defun tfsmacs-rename (&optional filename new-name)
   "Perform a tf rename on a file.
 
 The file to rename is deteremined this way:
@@ -231,18 +232,18 @@ If the rename is successful, and if the buffer is visiting the
 file that is being renamed, then this function also renames the
 buffer to the new name."
   (interactive)
-  (let ((file-to-rename (tfs--determine-target-files filename "File to rename: ")))
+  (let ((file-to-rename (tfsmacs--determine-target-files filename "File to rename: ")))
     (if (equal (length file-to-rename) 1)
         (let* ((source (car file-to-rename))
                (newname (or new-name (read-string (format "New name for %s: " source) nil nil nil)))
                (command (list "rename" source newname)))
-          (tfs--process-command command 'tfs--message-callback)
+          (tfsmacs--process-command command 'tfsmacs--message-callback)
           (if (string-equal source buffer-file-name)
               (set-visited-file-name newname)
             (error "Rename of %s was unsuccessful" file-to-rename)))
       (error "Couldn't determine file to rename"))))
 
-(defun tfs-add (&optional filename)
+(defun tfsmacs-add (&optional filename)
   "Perform a tf add on a file.
 
 The file to add is deteremined this way:
@@ -259,14 +260,14 @@ The file to add is deteremined this way:
 
  - else, prompt the user for the file to add."
   (interactive)
-  (let ((files-to-add (tfs--determine-target-files filename "File(s) to add: ")))
+  (let ((files-to-add (tfsmacs--determine-target-files filename "File(s) to add: ")))
     (if files-to-add
-        (let* ((items (mapcar 'tfs--quote-string files-to-add))
+        (let* ((items (mapcar 'tfsmacs--quote-string files-to-add))
                (command (append '("add") items)))
-          (tfs--process-command command 'tfs--message-callback))
-      (error "Error tfs-add: No file"))))
+          (tfsmacs--process-command command 'tfsmacs--message-callback))
+      (error "Error tfsmacs-add: No file"))))
 
-(defun tfs-delete (&optional filename)
+(defun tfsmacs-delete (&optional filename)
   "Perform a tf delete on a file.
 
 The file to delete is deteremined this way:
@@ -285,14 +286,14 @@ The file to delete is deteremined this way:
 If the delete is successful, and if the buffer is visiting the file that
 is being deleted, then this function also kills the buffer."
   (interactive)
-  (let ((files-to-delete (tfs--determine-target-files filename "File to delete: ")))
+  (let ((files-to-delete (tfsmacs--determine-target-files filename "File to delete: ")))
     (if files-to-delete
-        (let* ((items (mapcar 'tfs--quote-string files-to-delete))
+        (let* ((items (mapcar 'tfsmacs--quote-string files-to-delete))
                (command (append '("delete") items)))
-          (tfs--process-command command 'tfs--message-callback))
-      (error "Error tfs-delete: No file"))))
+          (tfsmacs--process-command command 'tfsmacs--message-callback))
+      (error "Error tfsmacs-delete: No file"))))
 
-(defun tfs-get (&optional filename version)
+(defun tfsmacs-get (&optional filename version)
   "Perform a tf get on a file.
 
 The file to get is deteremined this way:
@@ -310,14 +311,14 @@ The file to get is deteremined this way:
 
 If VERSION to get is not provided, it will be prompted."
   (interactive)
-  (let ((files-to-get (tfs--determine-target-files filename "File(s) to get: ")))
+  (let ((files-to-get (tfsmacs--determine-target-files filename "File(s) to get: ")))
     (when files-to-get
-        (let* ((items (mapcar 'tfs--quote-string files-to-get))
-               (version (list (tfs--get-version-param version)))
+        (let* ((items (mapcar 'tfsmacs--quote-string files-to-get))
+               (version (list (tfsmacs--get-version-param version)))
                (command (append '("get") files-to-get version)))
-          (tfs--process-command command 'tfs--message-callback)))))
+          (tfsmacs--process-command command 'tfsmacs--message-callback)))))
 
-(defun tfs--get-version-param (&optional version)
+(defun tfsmacs--get-version-param (&optional version)
   "Get a version spec string for a command that supports it.
 If VERSION is provided return said version as changeset."
   (let ((param " -version:"))
@@ -327,7 +328,7 @@ If VERSION is provided return said version as changeset."
         (concat param "T ")
       (concat param version " "))))
 
-(defun tfs-get-recursive (&optional dirname force)
+(defun tfsmacs-get-recursive (&optional dirname force)
   "Perform a recursive tf get on a directory.
 Use FORCE (or prefix arg) to overwrite writeable files not checked out
 and get even up-to-date files.
@@ -346,15 +347,15 @@ The directory to get is deteremined this way:
   (interactive)
   (when current-prefix-arg
     (setq force t))
-  (let* ((dir-to-get (tfs--determine-target-directory dirname "Directory to get: "))
-         (command (list "get" "-recursive" (tfs--quote-string dir-to-get))))
+  (let* ((dir-to-get (tfsmacs--determine-target-directory dirname "Directory to get: "))
+         (command (list "get" "-recursive" (tfsmacs--quote-string dir-to-get))))
     (when force
       (setq command (append command '("-force"))))
     (when dir-to-get
-      (tfs--process-command command 'tfs--message-callback))))
+      (tfsmacs--process-command command 'tfsmacs--message-callback))))
 
 
-(defun tfs-undo (&optional filename)
+(defun tfsmacs-undo (&optional filename)
   "Perform a tf undo on a file.
 
 The file to undo is deteremined this way:
@@ -370,14 +371,14 @@ The file to undo is deteremined this way:
 
  - else, prompt the user for the file."
   (interactive)
-  (let ((files-to-undo (tfs--determine-target-files filename "File(s) to undo: ")))
+  (let ((files-to-undo (tfsmacs--determine-target-files filename "File(s) to undo: ")))
     (when files-to-undo
-        (let* ((items (mapcar 'tfs--quote-string files-to-undo))
+        (let* ((items (mapcar 'tfsmacs--quote-string files-to-undo))
                 (command (append '("undo") items)))
              (when (yes-or-no-p "Undo changes to file(s)? ")
-               (tfs--process-command command 'tfs--message-callback))))))
+               (tfsmacs--process-command command 'tfsmacs--message-callback))))))
 
-(define-derived-mode tfs-history-mode tabulated-list-mode "TFS history Mode" "Major mode TFS History, displays an item's history and allows compares."
+(define-derived-mode tfsmacs-history-mode tabulated-list-mode "TFS history Mode" "Major mode TFS History, displays an item's history and allows compares."
   (setq tabulated-list-format [("Changeset" 10 t)
                                ("Type" 8. t)
                                ("Date" 20 t)
@@ -388,62 +389,62 @@ The file to undo is deteremined this way:
   (tabulated-list-init-header)
   (tablist-minor-mode))
 
-(define-key tfs-history-mode-map (kbd "T") 'tfs--history-mode-get-this-version)
-(define-key tfs-history-mode-map (kbd "C") 'tfs--history-mode-changeset-details)
-(define-key tfs-history-mode-map (kbd "D") 'tfs--history-mode-difference)
+(define-key tfsmacs-history-mode-map (kbd "T") 'tfsmacs--history-mode-get-this-version)
+(define-key tfsmacs-history-mode-map (kbd "C") 'tfsmacs--history-mode-changeset-details)
+(define-key tfsmacs-history-mode-map (kbd "D") 'tfsmacs--history-mode-difference)
 
 
-(defun tfs--history-mode-quote-path (item-pair)
+(defun tfsmacs--history-mode-quote-path (item-pair)
   "Return the same ITEM-PAIR with only the path quoted."
   (list
    (car item-pair)
-   (tfs--quote-string (cadr item-pair))))
+   (tfsmacs--quote-string (cadr item-pair))))
 
-(defun tfs--history-mode-get-marked-items ()
-  "Return the selected items in ‘tfs-history-mode’."
-  (mapcar 'tfs--history-mode-quote-path (mapcar 'car (tablist-get-marked-items))))
+(defun tfsmacs--history-mode-get-marked-items ()
+  "Return the selected items in ‘tfsmacs-history-mode’."
+  (mapcar 'tfsmacs--history-mode-quote-path (mapcar 'car (tablist-get-marked-items))))
 
-(defun tfs--history-mode-get-this-version ()
-  "Get the file version marked/selected in the ‘tfs-history-mode’ buffer."
+(defun tfsmacs--history-mode-get-this-version ()
+  "Get the file version marked/selected in the ‘tfsmacs-history-mode’ buffer."
   (interactive)
-  (let* ((items (tfs--history-mode-get-marked-items))
+  (let* ((items (tfsmacs--history-mode-get-marked-items))
          (to-get (car items)))
     (if (equal (length items) 1)
         (progn
           (message (concat "TFS: Getting changeset " (car to-get)))
-          (tfs-get (cadr to-get) (car to-get)))
+          (tfsmacs-get (cadr to-get) (car to-get)))
       (error "Only one item should be selected for this operation"))))
 
-(defun tfs--history-mode-changeset-details ()
-  "Open changeset details for the selected item in ‘tfs-history-mode’."
+(defun tfsmacs--history-mode-changeset-details ()
+  "Open changeset details for the selected item in ‘tfsmacs-history-mode’."
   (interactive)
-  (let* ((items (tfs--history-mode-get-marked-items))
+  (let* ((items (tfsmacs--history-mode-get-marked-items))
          (to-get (car items)))
     (if (equal (length items) 1)
         (progn
           (message (concat "TFS: Getting changeset details " (car to-get)))
-          (tfs-changeset (car to-get)))
+          (tfsmacs-changeset (car to-get)))
       (error "Only one item should be selected for this operation"))))
 
-(defun tfs--history-mode-difference ()
-  "Compare two selected items in ‘tfs-history-mode’."
+(defun tfsmacs--history-mode-difference ()
+  "Compare two selected items in ‘tfsmacs-history-mode’."
   (interactive)
-  (let* ((items (tfs--history-mode-get-marked-items))
+  (let* ((items (tfsmacs--history-mode-get-marked-items))
          (first-item (car items))
          (second-item (cadr items)))
     (if (equal (length items) 2)
         (progn
-          (tfs--history-mode-ediff first-item second-item))
+          (tfsmacs--history-mode-ediff first-item second-item))
       (error "Only two items should be selected for this operation"))))
 
-(defun tfs--history-mode-ediff (file1 file2)
+(defun tfsmacs--history-mode-ediff (file1 file2)
   "Compares FILE1 and FILE2 using ediff."
   (message "TFS: Retrieving files to compare. This operation can take a few seconds.")
-  (let* ((temp1 (tfs--write-file-to-temp-directory (cadr file1) (car file1)))
-         (temp2 (tfs--write-file-to-temp-directory (cadr file2) (car file2))))
+  (let* ((temp1 (tfsmacs--write-file-to-temp-directory (cadr file1) (car file1)))
+         (temp2 (tfsmacs--write-file-to-temp-directory (cadr file2) (car file2))))
     (ediff-files temp1 temp2)))
 
-(defun tfs-history (&optional filename)
+(defun tfsmacs-history (&optional filename)
   "Perform a tf history on a file.
 How the file is determined:
 
@@ -459,18 +460,18 @@ How the file is determined:
  - else, prompt the user for the file"
   
   (interactive)
-  (let ((files-for-history (tfs--determine-target-files filename "File: ")))
+  (let ((files-for-history (tfsmacs--determine-target-files filename "File: ")))
     (if (equal (length files-for-history) 1)
         (let* ((source (car files-for-history))
                (command (list "history" source)))
-          (setq command (append command (tfs--history-parameters-builder)))
+          (setq command (append command (tfsmacs--history-parameters-builder)))
           (message "TFS: Getting item history...")
-          (setq tfs--history-target source)
-          (setq tfs--history-xml-buffer "") ; just in case a previous invocation went wrong :)
-          (tfs--process-command command 'tfs--history-callback))
+          (setq tfsmacs--history-target source)
+          (setq tfsmacs--history-xml-buffer "") ; just in case a previous invocation went wrong :)
+          (tfsmacs--process-command command 'tfsmacs--history-callback))
       (error "Couldn't determine history target"))))
 
-(defun tfs--history-parameters-builder ()
+(defun tfsmacs--history-parameters-builder ()
   "Build the parameters for the history command: stopafter and user."
   (let ((user (read-string "Filter by user (blank to ignore): "))
         (stopafter (string-to-number (read-string "Number of items to retrieve (blank for 50): ")))
@@ -482,32 +483,32 @@ How the file is determined:
        (add-to-list 'params (format "-user:%s " user)))
      params))
 
-(defun tfs--history-callback (process output)
-  "Process the output of tf history and display the ‘tfs-history-mode’ buffer.
+(defun tfsmacs--history-callback (process output)
+  "Process the history output and display the ‘tfsmacs-history-mode’ buffer.
 PROCESS is the TEE process
 OUTPUT is the raw output"
-  (setq tfs--history-xml-buffer (concat tfs--history-xml-buffer output))
-  (let ((parsed-data (tfs--get-history-data-for-tablist tfs--history-xml-buffer)))
+  (setq tfsmacs--history-xml-buffer (concat tfsmacs--history-xml-buffer output))
+  (let ((parsed-data (tfsmacs--get-history-data-for-tablist tfsmacs--history-xml-buffer)))
     (when parsed-data
-      (setq tfs--history-xml-buffer "")
-      (let* ((short-target (file-name-nondirectory tfs--history-target))
+      (setq tfsmacs--history-xml-buffer "")
+      (let* ((short-target (file-name-nondirectory tfsmacs--history-target))
              (history-bufname (concat "*TFS History " short-target "*"))
              (buffer (get-buffer-create history-bufname)))
              (with-current-buffer buffer
                (setq tabulated-list-entries parsed-data)
-               (tfs-history-mode)
+               (tfsmacs-history-mode)
                (tablist-revert)
                (switch-to-buffer buffer))))))
 
-(defun tfs--get-history-data-for-tablist (xml-status-data)
+(defun tfsmacs--get-history-data-for-tablist (xml-status-data)
   "Format XML-STATUS-DATA from the history command for tabulated list."
   (with-temp-buffer
     (insert xml-status-data)
     (let* ((converted-xml-data (libxml-parse-xml-region (point-min) (point-max)))
            (changeset-nodes (dom-by-tag converted-xml-data 'changeset)))
-      (mapcar 'tfs--format-history-node changeset-nodes))))
+      (mapcar 'tfsmacs--format-history-node changeset-nodes))))
 
-(defun tfs--format-history-node (changeset-node)
+(defun tfsmacs--format-history-node (changeset-node)
   "Extract from CHANGESET-NODE the info."
   (let ((changeset (cadr changeset-node))
         (comment (car (dom-by-tag changeset-node 'comment)))
@@ -520,16 +521,16 @@ OUTPUT is the raw output"
      (vector
       (alist-get 'id changeset)
       (alist-get 'change-type item)
-      (tfs--format-history-node-date (alist-get 'date changeset))
+      (tfsmacs--format-history-node-date (alist-get 'date changeset))
       (alist-get 'committer changeset)
       comment))))
 
-(defun tfs--format-history-node-date (date-string)
+(defun tfsmacs--format-history-node-date (date-string)
   "Convert DATE-STRING to a better representation."
   ; Maybe it is worth it to do proper date formatting. TODO?
   (replace-regexp-in-string "T" " " (substring date-string  0 -9)))
 
-(defun tfs-changeset (&optional version)
+(defun tfsmacs-changeset (&optional version)
   "Gets info on a changeset.
 If VERSION to get is not provided, it will be prompted."
   (interactive)
@@ -537,138 +538,138 @@ If VERSION to get is not provided, it will be prompted."
     (setq version (read-string "Changeset number: (blank for latest): ")))
   (when (string-equal version "")
       (setq version "-latest"))
-  (when (get-buffer tfs--changeset-buffer-name)
-    (kill-buffer tfs--changeset-buffer-name))
+  (when (get-buffer tfsmacs--changeset-buffer-name)
+    (kill-buffer tfsmacs--changeset-buffer-name))
   (message "TFS: Getting changeset details...")
-  (tfs--process-command (list "changeset" version) 'tfs--changeset-callback))
+  (tfsmacs--process-command (list "changeset" version) 'tfsmacs--changeset-callback))
 
-(defun tfs--changeset-callback (process output)
+(defun tfsmacs--changeset-callback (process output)
   "Show the buffer with the changeset command result.
 PROCESS is the TEE process
 OUTPUT is the raw output"
-  (let* ((buffer (get-buffer-create tfs--changeset-buffer-name)))
+  (let* ((buffer (get-buffer-create tfsmacs--changeset-buffer-name)))
     (with-current-buffer buffer
       (insert output)
-      (display-buffer tfs--changeset-buffer-name t))))
+      (display-buffer tfsmacs--changeset-buffer-name t))))
 
-(define-derived-mode tfs-status-mode tabulated-list-mode "TFS Status Mode" "Major mode TFS Status, displays current pending changes"
+(define-derived-mode tfsmacs-status-mode tabulated-list-mode "TFS Status Mode" "Major mode TFS Status, displays current pending changes"
   (setq tabulated-list-format [("Change" 7 t)
                                ("Local Path" 100 t)
                                ("Server Path" 0 t)])
-  (set (make-local-variable 'tfs--buffer-status-dir) nil)
+  (set (make-local-variable 'tfsmacs--buffer-status-dir) nil)
   (setq tabulated-list-padding 1)
   (setq tabulated-list-sort-key (cons "Local Path" nil))
   (tabulated-list-init-header)
   (tablist-minor-mode))
 
-(defun tfs--quote-string (param)
+(defun tfsmacs--quote-string (param)
   "Surround PARAM with quotes using format.  Useful for paths and comments."
   (format "\"%s\"" param))
 
-(defun tfs--status-mode-checkin ()
-  "Process files marked in ‘tfs-status-mode’ for check in."
+(defun tfsmacs--status-mode-checkin ()
+  "Process files marked in ‘tfsmacs-status-mode’ for check in."
   (interactive)
-  (let* ((items (tfs--status-mode-get-marked-items))
-         (command (append '("checkin") (tfs--checkin-parameters-builder) items)))
-    (tfs--process-command command 'tfs--message-callback)))
+  (let* ((items (tfsmacs--status-mode-get-marked-items))
+         (command (append '("checkin") (tfsmacs--checkin-parameters-builder) items)))
+    (tfsmacs--process-command command 'tfsmacs--message-callback)))
 
-(defun tfs--status-mode-revert ()
-  "Revert (undo) the files marked using ‘tfs-status-mode’."
+(defun tfsmacs--status-mode-revert ()
+  "Revert (undo) the files marked using ‘tfsmacs-status-mode’."
   (interactive)
-  (let* ((items (tfs--status-mode-get-marked-items))
-         (quoted-items (mapcar 'tfs--quote-string items))
+  (let* ((items (tfsmacs--status-mode-get-marked-items))
+         (quoted-items (mapcar 'tfsmacs--quote-string items))
          (command '("undo")))
     (when (yes-or-no-p "Undo changes to the  files marked? ")
       (setq command (append command quoted-items))
-      (tfs--process-command command 'tfs--message-callback))))
+      (tfsmacs--process-command command 'tfsmacs--message-callback))))
 
-(defun tfs--status-mode-difference ()
+(defun tfsmacs--status-mode-difference ()
   "Compares pending change to latest version."
   (interactive)
-  (let ((items (tfs--status-mode-get-marked-items)))
+  (let ((items (tfsmacs--status-mode-get-marked-items)))
     (if (equal (length items) 1)
         (progn
           (message "TFS: Retrieving files to compare. This operation can take a few seconds.")
           (let* ((local (substring (car items) 1 -1)) ; these items are always quoted, remove the quotes
-                 (server (tfs--write-file-to-temp-directory local "T")))
+                 (server (tfsmacs--write-file-to-temp-directory local "T")))
             (ediff-files local server)))
       (error "Select only one file to compare to latest version"))))
 
-(defun tfs--status-mode-get-marked-items ()
+(defun tfsmacs--status-mode-get-marked-items ()
   "Obtain only the path of the files selected in the list."
-  (mapcar 'tfs--quote-string (mapcar 'car (tablist-get-marked-items))))
+  (mapcar 'tfsmacs--quote-string (mapcar 'car (tablist-get-marked-items))))
 
-(defun tfs--status-mode-visit-item ()
-  "Visit the file under the cursor in ‘tfs-status-mode’."
+(defun tfsmacs--status-mode-visit-item ()
+  "Visit the file under the cursor in ‘tfsmacs-status-mode’."
   (interactive)
   (find-file (tabulated-list-get-id)))
 
-(define-key tfs-status-mode-map (kbd "C") 'tfs--status-mode-checkin)
-(define-key tfs-status-mode-map  (kbd "R") 'tfs--status-mode-revert)
-(define-key tfs-status-mode-map (kbd "g") 'tfs-pending-changes)
-(define-key tfs-status-mode-map (kbd "RET") 'tfs--status-mode-visit-item)
-(define-key tfs-status-mode-map  (kbd "D") 'tfs--status-mode-difference)
-;(define-key tfs-status-mode-map (kbd "RET") 'tfs--status-mode-shelve)
+(define-key tfsmacs-status-mode-map (kbd "C") 'tfsmacs--status-mode-checkin)
+(define-key tfsmacs-status-mode-map  (kbd "R") 'tfsmacs--status-mode-revert)
+(define-key tfsmacs-status-mode-map (kbd "g") 'tfsmacs-pending-changes)
+(define-key tfsmacs-status-mode-map (kbd "RET") 'tfsmacs--status-mode-visit-item)
+(define-key tfsmacs-status-mode-map  (kbd "D") 'tfsmacs--status-mode-difference)
+;(define-key tfsmacs-status-mode-map (kbd "RET") 'tfsmacs--status-mode-shelve)
 
-(defun tfs-pending-changes ()
+(defun tfsmacs-pending-changes ()
   "Perform a recursive tf status.  Displays the result in a separate buffer."
   (interactive)
   (with-current-buffer (current-buffer)
-    (if (string-equal major-mode "tfs-status-mode")
-        (tfs--get-pending-changes tfs--buffer-status-dir)
+    (if (string-equal major-mode "tfsmacs-status-mode")
+        (tfsmacs--get-pending-changes tfsmacs--buffer-status-dir)
       (progn
-        (let* ((status-dir (tfs--select-status-directory))
+        (let* ((status-dir (tfsmacs--select-status-directory))
                (buffer (get-buffer-create "*TFS Status [running]*")))
           (with-current-buffer buffer
-            (setq tfs--buffer-status-dir status-dir)
-            (tfs--get-pending-changes status-dir)
+            (setq tfsmacs--buffer-status-dir status-dir)
+            (tfsmacs--get-pending-changes status-dir)
             (switch-to-buffer buffer)))))))
 
-(defun tfs--get-pending-changes (directory)
+(defun tfsmacs--get-pending-changes (directory)
   "Internal call to run the status command in DIRECTORY."
   (let* ((command (list "status" directory "-recursive" "-nodetect"  "-format:xml")))
     (message "TFS: Obtaining list of pending changes...")
-    (setq tfs--status-xml-buffer "") ; just in case a previous invocation went wrong :)
-    (tfs--process-command command 'tfs--status-callback)))
+    (setq tfsmacs--status-xml-buffer "") ; just in case a previous invocation went wrong :)
+    (tfsmacs--process-command command 'tfsmacs--status-callback)))
 
-(defun tfs--status-callback (process output)
-  "Process the output of tf status and display the ‘tfs-status-mode’ buffer.
+(defun tfsmacs--status-callback (process output)
+  "Process the output of tf status and display the ‘tfsmacs-status-mode’ buffer.
 PROCESS is the TEE process
 OUTPUT is the raw output"
-  (setq tfs--status-xml-buffer (concat tfs--status-xml-buffer output))
-  (when (tfs--status-xml-complete)
-    (let ((parsed-data (tfs--get-status-data-for-tablist tfs--status-xml-buffer)))
-      (setq tfs--status-xml-buffer "")
-      (let* ((directory tfs--buffer-status-dir)
-             (last-dir-in-path (tfs--get-last-dir-name directory))
+  (setq tfsmacs--status-xml-buffer (concat tfsmacs--status-xml-buffer output))
+  (when (tfsmacs--status-xml-complete)
+    (let ((parsed-data (tfsmacs--get-status-data-for-tablist tfsmacs--status-xml-buffer)))
+      (setq tfsmacs--status-xml-buffer "")
+      (let* ((directory tfsmacs--buffer-status-dir)
+             (last-dir-in-path (tfsmacs--get-last-dir-name directory))
              (status-bufname (concat "*TFS Status " last-dir-in-path "*"))
              (buffer (get-buffer status-bufname)))
         (when (not buffer)
           (setq buffer (get-buffer "*TFS Status [running]*"))
           (erase-buffer))
         (with-current-buffer buffer
-          (tfs-status-mode)
+          (tfsmacs-status-mode)
           ;Buffer local vars
           (setq tabulated-list-entries parsed-data)
-          (setq tfs--buffer-status-dir directory)
+          (setq tfsmacs--buffer-status-dir directory)
           (tablist-revert)
           (rename-buffer status-bufname)
           (switch-to-buffer buffer))))))
 
-(defun tfs--status-xml-complete ()
+(defun tfsmacs--status-xml-complete ()
   "Confirm that the status closing tag is present."
-  (or (string-match-p (regexp-quote "</status>") tfs--status-xml-buffer)
-      (string-match-p (regexp-quote "<status/>") tfs--status-xml-buffer)))
+  (or (string-match-p (regexp-quote "</status>") tfsmacs--status-xml-buffer)
+      (string-match-p (regexp-quote "<status/>") tfsmacs--status-xml-buffer)))
 
-(defun tfs--get-status-data-for-tablist (xml-status-data)
+(defun tfsmacs--get-status-data-for-tablist (xml-status-data)
   "Format XML-STATUS-DATA from the status command for tabulated list."
   (with-temp-buffer
     (insert xml-status-data)
     (let* ((converted-xml-data (libxml-parse-xml-region (point-min) (point-max)))
            (pending-change-nodes (dom-by-tag converted-xml-data 'pending-change)))
-      (mapcar 'tfs--format-status-node pending-change-nodes))))
+      (mapcar 'tfsmacs--format-status-node pending-change-nodes))))
 
-(defun tfs--format-status-node (pending-changes-node)
+(defun tfsmacs--format-status-node (pending-changes-node)
   "Extract from PENDING-CHANGES-NODE the info."
   (let ((data (cadr pending-changes-node)))
     (list
@@ -678,9 +679,9 @@ OUTPUT is the raw output"
       (alist-get 'local-item data)
       (alist-get 'server-item data)))))
 
-(defun tfs--select-status-directory ()
+(defun tfsmacs--select-status-directory ()
   "Prompt for a directory.  Try  projectile root first, else use current buffer's directory."
-  (let ((tfs-status-dir "")
+  (let ((tfsmacs-status-dir "")
         (default-dir-prompt "?"))
     (ignore-errors
       (when (fboundp 'projectile-project-root)
@@ -689,11 +690,11 @@ OUTPUT is the raw output"
       (setq default-dir-prompt default-directory))
     (read-directory-name "Status for directory: " default-dir-prompt nil t)))
 
-(defun tfs--append-to-log (text)
+(defun tfsmacs--append-to-log (text)
   "Append TEXT to the TFS Messages buffer.
 Intended for internal use only."
   (let ((buf (current-buffer))
-        (tfsbuffer (get-buffer-create tfs-log-buffer-name)))
+        (tfsbuffer (get-buffer-create tfsmacs-log-buffer-name)))
     (set-buffer tfsbuffer)
     (goto-char (point-max))
     (insert text)
