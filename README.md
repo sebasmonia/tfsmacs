@@ -135,7 +135,7 @@ Dino Chiesa ([GitHub profile](https://github.com/DinoChiesa)) wrote an integrati
 layer between Emacs and TFS a few years ago. You can still find his version
 in EmacsWiki. He was kind enough to give me permission to take his code as
 starting point for the current package. Without his initial package
-and generosity tfs.el as it is now wouldn't exist.
+and generosity tfsmacs as it is now wouldn't exist.
 
 ## Feedback appreciated!
 
