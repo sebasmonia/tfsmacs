@@ -1,10 +1,19 @@
-;;; tfsmacs.el --- MS Team Foundation Server commands.
-;; URL        : https://github.com/sebasmonia/tfs.el
-;; Authors    : Dino Chiesa <dpchiesa@outlook.com>, Sebastian Monia <smonia@outlook.com>
-;; Version    : 20180524
-;; Package-Requires: ((emacs "25") (tablist "0.70"))
-;;; Commentary:
+;;; tfsmacs.el --- MS Team Foundation Server commands.  -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2018 Sebastian Monia
 ;;
+;; Author: Dino Chiesa <dpchiesa@outlook.com>, Sebastian Monia <smonia@outlook.com>
+;; URL: http://github.com/sebasmonia/tfsmacs/
+;; Package-Requires: ((emacs "25") (tablist "0.70"))
+;; Version: 1.0
+;; Keywords: tfs, vc
+
+;; This file is not part of GNU Emacs.
+
+;;; License: MIT
+
+;;; Commentary:
+
 ;; Basic steps to setup:
 ;;   1. Obtain the Team Explorer Everywhere CLI tool from https://github.com/Microsoft/team-explorer-everywhere/releases
 ;;   2. Place `tfsmacs.el' in your `load-path'.
@@ -26,6 +35,9 @@
 ;;        (global-set-key  "\C-ctu" 'tfsmacs-undo)
 ;;        (global-set-key  "\C-ct-" 'tfsmacs-delete)
 ;;        (global-set-key  "\C-ct+" 'tfsmacs-add)
+;; For a detailed user manual see:
+;; https://github.com/sebasmonia/tfsmacs/blob/master/README.md
+
 ;;; Code:
 
 (require 'dom)
