@@ -142,7 +142,7 @@ pick a file."
   (cond
    ((stringp filename)
     (list filename))
-   ((eq major-mode 'dired-mode)
+   ((derived-mode-p 'dired-mode)
     (dired-get-marked-files))
    (buffer-file-name
     (list buffer-file-name))
@@ -156,7 +156,7 @@ use the current directory.  Else use PROMPT to get the user to pick a dir."
   (cond
    ((stringp dirname)
     dirname)
-   ((or (eq major-mode 'dired-mode) (buffer-file-name))
+   ((or (derived-mode-p 'dired-mode) (buffer-file-name))
     default-directory)
    (t
     (expand-file-name (read-directory-name prompt nil nil t)))))
@@ -172,7 +172,7 @@ From: https://stackoverflow.com/questions/27284851/emacs-lisp-get-directory-name
   "Write the VERSION of PATH to a temporary directory.
 It spins off a new instance of the TEE tool by calling 'tfsmacs--process-command-sync'"
   ;remove quotes around  path if needed.
-  (when (string-equal "\"" (substring path 0 1))
+  (when (string-prefix-p "\"" path)
     (setq path (substring path 1 -1)))
   (let* ((only-name (file-name-nondirectory path))
          (filename (concat temporary-file-directory version ";" only-name))
@@ -643,7 +643,7 @@ OUTPUT is the raw output"
   "Perform a recursive tf status.  Displays the result in a separate buffer."
   (interactive)
   (with-current-buffer (current-buffer)
-    (if (string-equal major-mode "tfsmacs-status-mode")
+    (if (derived-mode-p 'tfsmacs-status-mode)
         (tfsmacs--get-pending-changes tfsmacs--buffer-status-dir)
       (progn
         (let* ((status-dir (tfsmacs--select-status-directory))
