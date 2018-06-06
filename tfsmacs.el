@@ -1,4 +1,4 @@
-;;; tfsmacs.el --- MS Team Foundation Server commands.  -*- lexical-binding: t; -*-
+;;; tfsmacs.el --- MS TFS source control interaction.  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018 Sebastian Monia
 ;;
@@ -43,25 +43,25 @@
 (require 'dom)
 (require 'tablist)
 
-(defcustom tfsmacs-cmd  "C:/HomeFolder/TEE-CLC-14.134.0/tf.cmd"
+(defgroup tfsmacs nil
+  "MS TFS source control interaction."
+  :group 'extensions)
+
+(defcustom tfsmacs-cmd  ""
   "Location of the 'Team Explorer Everywhere' command line tool."
-  :type 'string
-  :group 'tfsmacs)
+  :type 'string)
 
 (defcustom tfsmacs-login ""
   "Values for the -login option.  Ignored if empty."
-  :type 'string
-  :group 'tfsmacs)
+  :type 'string)
 
 (defcustom tfsmacs-collection-url ""
   "URL of the TFS Collection.  If empty, the TEE CLI will assume the collection from the existing folder mappings."
-  :type 'string
-  :group 'tfsmacs)
+  :type 'string)
 
 (defcustom tfsmacs-log-buffer-name "*TFS Log*"
   "Name of the TFS log buffer."
-  :type 'string
-  :group 'tfsmacs)
+  :type 'string)
 
 (defvar tfsmacs--buffer-status-dir nil)
 (defvar tfsmacs--history-target "")
