@@ -47,7 +47,7 @@
   "MS TFS source control interaction."
   :group 'extensions)
 
-(defcustom tfsmacs-cmd  ""
+(defcustom tfsmacs-cmd  "C:/HomeFolder/TEE-CLC-14.134.0/tf.cmd"
   "Location of the 'Team Explorer Everywhere' command line tool."
   :type 'string)
 
@@ -90,7 +90,7 @@
 
 (defun tfsmacs--get-or-create-process ()
   "Create or return the TEE process."
-  (let ((buffer-name (concat "*" tfsmacs--process-name "*")))
+  (let ((buffer-name (format "*%s*" tfsmacs--process-name)))
     (when (not (get-process tfsmacs--process-name))
       (tfsmacs--append-to-log "Creating new process instance...")
       (start-process tfsmacs--process-name buffer-name
@@ -103,7 +103,7 @@
   (let* ((collection-param (tfsmacs--get-collection-parameter))
          (login-param (tfsmacs--get-login-parameter))
          (params (append command (list collection-param login-param))))
-    (tfsmacs--append-to-log (concat "Command input (sync): " (prin1-to-string params)))
+    (tfsmacs--append-to-log (format "Command input (sync): %s" (prin1-to-string params)))
     (apply 'process-lines tfsmacs-cmd params)))
 
 (defun tfsmacs--process-command (command handler)
@@ -117,20 +117,22 @@
 
 (defun tfsmacs--get-collection-parameter ()
   "Return the collection parameter if configured, or empty string."
-  (if (not (string-equal tfsmacs-collection-url ""))
-      (concat " -collection:" tfsmacs-collection-url " ")
-    ""))
+  (when (not (string-empty-p tfsmacs-collection-url))
+    (format " -collection:%s " tfsmacs-collection-url)))
 
 (defun tfsmacs--get-login-parameter ()
   "Return the login parameter if configured, or empty string."
-  (if (not (string-equal tfsmacs-login ""))
-      (concat " -login:" tfsmacs-login " ")
-    ""))
+  (when (not (string-empty-p tfsmacs-login))
+    (format " -login:%s " tfsmacs-login)))
 
 (defun tfsmacs--message-callback (process output)
   "Show OUTPUT of PROCESS as message.  Also append to the TFS log."
   (tfsmacs--append-to-log output)
-  (message (concat "TFS:\n"  output)))
+  (message (format "TFS:\n%s" output)))
+
+(defun tfsmacs--log-callback (process output)
+  "Append OUTPUT of PROCESS to the TFS log."
+  (tfsmacs--append-to-log output))
 
 (defun tfsmacs--determine-target-files (filename prompt)
   "Determine the name of the file to use in a TF command, or prompt for one.
@@ -174,7 +176,7 @@ It spins off a new instance of the TEE tool by calling 'tfsmacs--process-command
     (setq path (substring path 1 -1)))
   (let* ((only-name (file-name-nondirectory path))
          (filename (concat temporary-file-directory version ";" only-name))
-         (command (list "print" (concat "-version:" version) path))
+         (command (list "print" (format "-version:%s" version) path))
          (content nil))
     (setq content (tfsmacs--process-command-sync command))
     (with-temp-file filename
@@ -347,12 +349,12 @@ If VERSION to get is not provided, it will be prompted."
 (defun tfsmacs--get-version-param (&optional version)
   "Get a version spec string for a command that supports it.
 If VERSION is provided return said version as changeset."
-  (let ((param " -version:"))
+  (let ((param " -version:%s "))
     (when (not version)
       (setq version (read-string "Version spec (blank for latest): ")))
-    (if (string-equal version "")
-        (concat param "T ")
-      (concat param version " "))))
+    (when (string-empty-p version)
+      (setq version "T"))
+    (format param version)))
 
 (defun tfsmacs-get-recursive (&optional dirname force)
   "Perform a recursive tf get on a directory.
@@ -437,7 +439,7 @@ The file to undo is deteremined this way:
          (to-get (car items)))
     (if (equal (length items) 1)
         (progn
-          (message (concat "TFS: Getting changeset " (car to-get)))
+          (message (format "TFS: Getting changeset %s" (car to-get)))
           (tfsmacs-get (cadr to-get) (car to-get)))
       (error "Only one item should be selected for this operation"))))
 
@@ -448,7 +450,7 @@ The file to undo is deteremined this way:
          (to-get (car items)))
     (if (equal (length items) 1)
         (progn
-          (message (concat "TFS: Getting changeset details " (car to-get)))
+          (message (format "TFS: Getting changeset details %s" (car to-get)))
           (tfsmacs-changeset (car to-get)))
       (error "Only one item should be selected for this operation"))))
 
@@ -504,9 +506,9 @@ How the file is determined:
         (params (list "-recursive" "-format:xml")))
     (when (equal stopafter 0)
       (setq stopafter 50))
-    (add-to-list 'params (concat " -stopafter:" (number-to-string stopafter) " "))
-    (when (not (string-equal user ""))
-       (add-to-list 'params (format "-user:%s " user)))
+    (add-to-list 'params (format " -stopafter:%d " stopafter))
+    (when (not (string-empty-p user))
+       (add-to-list 'params (format " -user:%s " user)))
      params))
 
 (defun tfsmacs--history-callback (process output)
@@ -518,7 +520,7 @@ OUTPUT is the raw output"
     (when parsed-data
       (setq tfsmacs--history-xml-buffer "")
       (let* ((short-target (file-name-nondirectory tfsmacs--history-target))
-             (history-bufname (concat "*TFS History " short-target "*"))
+             (history-bufname (format "*TFS History %s *" short-target))
              (buffer (get-buffer-create history-bufname)))
              (with-current-buffer buffer
                (setq tabulated-list-entries parsed-data)
@@ -668,7 +670,7 @@ OUTPUT is the raw output"
       (setq tfsmacs--status-xml-buffer "")
       (let* ((directory tfsmacs--buffer-status-dir)
              (last-dir-in-path (tfsmacs--get-last-dir-name directory))
-             (status-bufname (concat "*TFS Status " last-dir-in-path "*"))
+             (status-bufname (format "*TFS Status %s *" last-dir-in-path))
              (buffer (get-buffer status-bufname)))
         (when (not buffer)
           (setq buffer (get-buffer "*TFS Status [running]*"))
