@@ -98,13 +98,16 @@
     (tfsmacs--append-to-log "Returned process handle.")
     (get-process tfsmacs--process-name)))
 
-(defun tfsmacs--process-command-sync (command)
-  "Create a new instance of the TEE process to execute COMMAND and block until output is done."
+(defun tfsmacs--process-command-sync-to-buffer (command output-buffer-name)
+  "Create a new instance of the TEE process, execute COMMAND and write output to OUTPUT-BUFFER-NAME."
   (let* ((collection-param (tfsmacs--get-collection-parameter))
          (login-param (tfsmacs--get-login-parameter))
-         (params (append command (list collection-param login-param))))
+         (params (append command (list collection-param login-param)))
+         (buffer nil))
     (tfsmacs--append-to-log (format "Command input (sync): %s" (prin1-to-string params)))
-    (apply 'process-lines tfsmacs-cmd params)))
+    (when (get-buffer output-buffer-name)
+      (kill-buffer output-buffer-name))
+    (apply 'call-process tfsmacs-cmd nil output-buffer-name nil params)))
 
 (defun tfsmacs--process-command (command handler)
   "Set HANDLER as the filter function for the TEE CLI process and send COMMAND as string."
@@ -117,13 +120,15 @@
 
 (defun tfsmacs--get-collection-parameter ()
   "Return the collection parameter if configured, or empty string."
-  (when (not (string-empty-p tfsmacs-collection-url))
-    (format " -collection:%s " tfsmacs-collection-url)))
+  (if (not (string-empty-p tfsmacs-collection-url))
+      (format " -collection:%s " tfsmacs-collection-url)
+    ""))
 
 (defun tfsmacs--get-login-parameter ()
   "Return the login parameter if configured, or empty string."
-  (when (not (string-empty-p tfsmacs-login))
-    (format " -login:%s " tfsmacs-login)))
+  (if (not (string-empty-p tfsmacs-login))
+      (format " -login:%s " tfsmacs-login)
+    ""))
 
 (defun tfsmacs--message-callback (process output)
   "Show OUTPUT of PROCESS as message.  Also append to the TFS log."
@@ -170,18 +175,16 @@ From: https://stackoverflow.com/questions/27284851/emacs-lisp-get-directory-name
 
 (defun tfsmacs--write-file-to-temp-directory (path version)
   "Write the VERSION of PATH to a temporary directory.
-It spins off a new instance of the TEE tool by calling 'tfsmacs--process-command-sync'"
+It spins off a new instance of the TEE tool by calling 'tfsmacs--process-command-sync-to-buffer'"
   ;remove quotes around  path if needed.
-  (when (string-prefix-p "\"" path)
+  (when (string-equal "\"" (substring path 0 1))
     (setq path (substring path 1 -1)))
   (let* ((only-name (file-name-nondirectory path))
          (filename (concat temporary-file-directory version ";" only-name))
-         (command (list "print" (format "-version:%s" version) path))
-         (content nil))
-    (setq content (tfsmacs--process-command-sync command))
-    (with-temp-file filename
-      (insert (mapconcat 'identity content "\n")))
+         (command (list "print" (format "-version:%s" version) path)))
+    (tfsmacs--process-command-sync-to-buffer command filename)
     filename))
+    
 
 (defun tfsmacs-checkout (&optional filename)
   "Perform a tf checkout (edit).
