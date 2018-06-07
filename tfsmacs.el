@@ -102,8 +102,7 @@
   "Create a new instance of the TEE process, execute COMMAND and write output to OUTPUT-BUFFER-NAME."
   (let* ((collection-param (tfsmacs--get-collection-parameter))
          (login-param (tfsmacs--get-login-parameter))
-         (params (append command (list collection-param login-param)))
-         (buffer nil))
+         (params (append command (list collection-param login-param))))
     (tfsmacs--append-to-log (format "Command input (sync): %s" (prin1-to-string params)))
     (when (get-buffer output-buffer-name)
       (kill-buffer output-buffer-name))
