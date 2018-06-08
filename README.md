@@ -1,3 +1,6 @@
+[![MELPA](https://melpa.org/packages/tfsmacs-badge.svg)](https://melpa.org/#/tfsmacs)
+
+
 `tfsmacs` is a package to work with Team Foundation Server from Emacs.
 This package deals only with the source control aspect, not PBIs, sprints,
 builds, or any other thing contained in TFS.
