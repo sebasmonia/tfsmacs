@@ -95,7 +95,6 @@ defaults are as follows:
 * T ("This version"), to get the version selected
 * D to diff the two versions marked (using ediff)
 
-
 ## Team Explorer Everywhere vs tf.exe
 
 The reason the tool uses TEE CLI instead of the regular TF.EXE windows
@@ -108,16 +107,6 @@ first call_.
 
 Retrieving file contents for diffs is synchronous, so those operations will block
 Emacs. Alternatives are being evaluated, and suggestions are welcomed.
-
-## TODO
-
-* The "changeset" command allows updating information, currently unsupported
-* Shelveset operations (create shelve/unshelve/shelve details)
-* Revisit synchronous code to download files. An alternative suggested was to have
-a timeout of 0.1/0.2 seconds before assuming the output is completed.
-* Create shelves from tfsmacs-pending-changes
-* Unshelve. Will require listing shelves (by user?) then unshelve.
-* Label & get by label
 
 ## Special thanks
 
