@@ -1,6 +1,5 @@
 [![MELPA](https://melpa.org/packages/tfsmacs-badge.svg)](https://melpa.org/#/tfsmacs)
 
-
 `tfsmacs` is a package to work with Team Foundation Server from Emacs.
 This package deals only with the source control aspect, not PBIs, sprints,
 builds, or any other thing contained in TFS.
@@ -8,6 +7,7 @@ builds, or any other thing contained in TFS.
 ## Table of contents
 
 <!--ts-->
+
    * [Installation](#installation)
      * [Prerequisites](#prerequisites)
      * [Install from MELPA](#install-from-melpa)
@@ -29,7 +29,7 @@ builds, or any other thing contained in TFS.
 The first step is to get the "Team Explorer Everywhere Command Line Client" or "TEE CLC" from the [Team Explorer Everywhere releases page](https://github.com/Microsoft/team-explorer-everywhere/releases). More installation instructions can be found in the README for the repo.
 Documentation specific to the TEE CLI can be a bit hard to find as most web searches return info on the regular TF.exe that is shipped with Visual Studio (to add to the confusion, both tools share a lot of commands). The reference specific to TEE CLI on MS Docs is [here](https://docs.microsoft.com/en-us/previous-versions/visualstudio/visual-studio-2010/gg413282(v=vs.100)).
 
-### Install from MELPA (recommended)
+### Install from MELPA
 
 You can find this package in MELPA. This is the recommended way to install tfsmacs.
 
