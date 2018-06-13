@@ -28,13 +28,8 @@
 ;;        (global-set-key  "\C-ctp" 'tfsmacs-pendingchanges)
 ;;        (global-set-key  "\C-cto" 'tfsmacs-checkout)
 ;;        (global-set-key  "\C-cti" 'tfsmacs-checkin)
-;;        (global-set-key  "\C-ctr" 'tfsmacs-rename)
-;;        (global-set-key  "\C-ctg" 'tfsmacs-get)
-;;        (global-set-key  "\C-cth" 'tfsmacs-history)
-;;        (global-set-key  "\C-ctc" 'tfsmacs-changeset)
-;;        (global-set-key  "\C-ctu" 'tfsmacs-undo)
-;;        (global-set-key  "\C-ct-" 'tfsmacs-delete)
-;;        (global-set-key  "\C-ct+" 'tfsmacs-add)
+;;        ; etc.
+;;
 ;; For a detailed user manual see:
 ;; https://github.com/sebasmonia/tfsmacs/blob/master/README.md
 
@@ -74,8 +69,10 @@
 
 (defvar tfsmacs--process-name "TEECLI")
 (defvar tfsmacs--changeset-buffer-name "*TFS Changeset*")
-; Used to repeat the command when using "g" in the status buffer
+; Used to repeat the command when using "g" in the status buffer. Buffer local.
 (defvar tfsmacs--buffer-status-dir nil)
+; Changeset ID in the changeset details window. Buffer local.
+(defvar tfsmacs--changeset-id "")
 ; Used to determine the current file/dir in the history buffer
 (defvar tfsmacs--history-target "")
 ; Accumulates the output of the tf process until the command is complete
@@ -134,7 +131,7 @@ Output will be passed to the callback function as parameter."
     (process-send-string (tfsmacs--get-or-create-process) command-string)
     (tfsmacs--process-command-async-schedule-check callback)))
   
-(defun tfsmacs--process-command-async-callback (process output)
+(defun tfsmacs--process-command-async-callback (_process output)
   "Accumulate the OUTPUT of PROCESS."
   (setq tfsmacs--command-output-buffer (concat tfsmacs--command-output-buffer output))
   (setq tfsmacs--command-retries 1) ; Reset the retries counter as long as output is received
@@ -287,10 +284,10 @@ other files will not be checked in."
         (override  (read-string "Override reason (empty to skip): "))
         (params (list (format "-comment:%s" (tfsmacs--quote-string comment)))))
     (when (not (string-empty-p wid))
-      (add-to-list 'params (format "-associate:%s" wid)))
-     (when (not (string-empty-p override))
-       (add-to-list 'params (format "-override:%s" (tfsmacs--quote-string override))))
-     params))
+      (push (format "-associate:%s" wid) params))
+    (when (not (string-empty-p override))
+      (push (format "-override:%s" (tfsmacs--quote-string override)) params))
+    params))
 
 (defun tfsmacs-rename (&optional filename new-name)
   "Perform a tf rename on a file.
@@ -399,7 +396,7 @@ If VERSION to get is not provided, it will be prompted."
     (when files-to-get
         (let* ((items (mapcar 'tfsmacs--quote-string files-to-get))
                (version (list (tfsmacs--get-version-param version)))
-               (command (append '("get") files-to-get version)))
+               (command (append '("get") items version)))
           (tfsmacs--process-command-async command 'tfsmacs--short-message-callback)))))
 
 (defun tfsmacs--get-version-param (&optional version)
@@ -561,9 +558,9 @@ How the file is determined:
         (params (list "-recursive" "-format:xml")))
     (when (equal stopafter 0)
       (setq stopafter 50))
-    (add-to-list 'params (format " -stopafter:%d " stopafter))
+    (push (format " -stopafter:%d " stopafter) params)
     (when (not (string-empty-p user))
-       (add-to-list 'params (format " -user:%s " user)))
+      (push (format " -user:%s " user) params))
      params))
 
 (defun tfsmacs--history-callback (output)
@@ -613,11 +610,20 @@ OUTPUT is the XML output from \"tf history\"."
 (defun tfsmacs--changeset-callback (output)
   "Show the buffer with the changeset command result.
 OUTPUT is the command's output"
-  (let* ((buffer (get-buffer-create tfsmacs--changeset-buffer-name)))
-    (with-current-buffer buffer
-      (insert output)
-      (display-buffer tfsmacs--changeset-buffer-name t))
-    (message "TFS: Displaying details. Use \"U\" to update the changeset.")))
+  (with-current-buffer tfsmacs--changeset-buffer-name
+    (insert output)
+    (read-only-mode)
+    (local-set-key "U" 'tfsmacs--changeset-update)
+    (switch-to-buffer-other-window tfsmacs--changeset-buffer-name t))
+  (message "TFS: Displaying details. Use \"U\" to update the comment."))
+
+(defun tfsmacs--changeset-update ()
+  "Update the changeset comments in the current buffer."
+  (interactive)
+  (let* ((comment (read-string "Updated check in comment: "))
+         (params (list "changeset" tfsmacs--changeset-id (format "-comment:%s" (tfsmacs--quote-string comment)))))
+    (with-current-buffer tfsmacs--changeset-buffer-name
+      (tfsmacs--process-command-async params 'tfsmacs--message-callback))))
 
 (defun tfsmacs-changeset (&optional version)
   "Gets info on a changeset.
@@ -629,6 +635,8 @@ If VERSION to get is not provided, it will be prompted."
       (setq version "-latest"))
   (when (get-buffer tfsmacs--changeset-buffer-name)
     (kill-buffer tfsmacs--changeset-buffer-name))
+  (with-current-buffer (get-buffer-create tfsmacs--changeset-buffer-name)
+    (set (make-local-variable 'tfsmacs--changeset-id) version))
   (message "TFS: Getting changeset details...")
   (tfsmacs--process-command-async (list "changeset" version) 'tfsmacs--changeset-callback))
 
@@ -752,8 +760,7 @@ OUTPUT is the XML result of \"tf status\"."
 
 (defun tfsmacs--select-status-directory ()
   "Prompt for a directory.  Try  projectile root first, else use current buffer's directory."
-  (let ((tfsmacs-status-dir "")
-        (default-dir-prompt "?"))
+  (let ((default-dir-prompt "?"))
     (ignore-errors
       (when (fboundp 'projectile-project-root)
         (setq default-dir-prompt (projectile-project-root))))
