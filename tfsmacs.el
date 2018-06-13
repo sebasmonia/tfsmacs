@@ -83,9 +83,6 @@
 ; Used to count the number of retries parsing the output of a command
 ; It is resetted every time new input arrives
 (defvar tfsmacs--command-retries 0)
-; Hold the (path version) of files to ediff
-(defvar tfsmacs--ediff-file1 "")
-(defvar tfsmacs--ediff-file2 "")
 
 (define-prefix-command 'tfsmacs-map)
 (define-key tfsmacs-map "p" 'tfsmacs-pending-changes)
@@ -108,19 +105,20 @@
       (tfsmacs--append-to-log "Creating new process instance...")
       (setq process (start-process tfsmacs--process-name buffer-name
                                    tfsmacs-cmd "@"))
+      ; testing if forcing process output helps with startup time
+      ; for newly created instances
+      (process-send-string process "help eula\n")
       (set-process-filter process 'tfsmacs--process-command-async-callback))
-    (tfsmacs--append-to-log "Returned process handle.")
     process))
 
-(defun tfsmacs--process-command-sync-to-buffer (command output-buffer-name)
-  "Create a new instance of the TEE process, execute COMMAND and write output to OUTPUT-BUFFER-NAME."
+(defun tfsmacs--process-command-sync-to-file (command output-filename)
+  "Create a new instance of the TEE process, execute COMMAND and write output to OUTPUT-FILENAME."
   (let* ((collection-param (tfsmacs--get-collection-parameter))
          (login-param (tfsmacs--get-login-parameter))
          (params (append command (list collection-param login-param))))
-    (tfsmacs--append-to-log (format "Command input (sync): %s" (prin1-to-string params)))
-    (when (get-buffer output-buffer-name)
-      (kill-buffer output-buffer-name))
-    (apply 'call-process tfsmacs-cmd nil output-buffer-name nil params)))
+    (tfsmacs--append-to-log (format "COMMAND (sync): %s" (prin1-to-string params)))
+    (with-temp-file output-filename
+      (apply 'call-process tfsmacs-cmd nil t nil params))))
 
 (defun tfsmacs--process-command-async (command callback)
   "Run COMMAND in the TEE CLI process and call CALLBACK once it's done.
@@ -128,9 +126,10 @@ Output will be passed to the callback function as parameter."
   (let* ((collection-param (tfsmacs--get-collection-parameter))
          (login-param (tfsmacs--get-login-parameter))
          (command-string (concat (mapconcat 'identity command " ") collection-param login-param "\n")))
-    (tfsmacs--append-to-log (concat "Command input: " command-string))
+    (tfsmacs--append-to-log (concat "COMMAND: " command-string))
     (setq command-string (concat command-string "help eula\n"))
     (setq tfsmacs--command-output-buffer "")
+    (setq tfsmacs--command-retries 1)
     (message "TFS: Running command...")
     (process-send-string (tfsmacs--get-or-create-process) command-string)
     (tfsmacs--process-command-async-schedule-check callback)))
@@ -153,7 +152,15 @@ If it did invoke CALLBACK, else re-schedule the function."
     (progn
       (if (< tfsmacs--command-retries tfsmacs-async-command-retries)
           (tfsmacs--process-command-async-schedule-check callback)
-        (error "TFS: Command output not received")))))
+        (progn
+          (tfsmacs--append-to-log "---Incomplete output:---")
+          (tfsmacs--append-to-log tfsmacs--command-output-buffer)
+          (tfsmacs--append-to-log "-----------------------")
+          ; Just in case the command killed the process instance, this will start another one
+          ; or just return the existing one, which is inexpensive
+          (tfsmacs--get-or-create-process)
+          (message "TFS: Command not completed. See log for details.")
+          (funcall callback ""))))))
 
 (defun tfsmacs--process-command-async-schedule-check (callback)
   "Schedule `tfsmacs--process-command-async-complete` with CALLBACK."
@@ -224,12 +231,12 @@ From: https://stackoverflow.com/questions/27284851/emacs-lisp-get-directory-name
   "Write the VERSION of PATH to a temporary directory.
 It spins off a new instance of the TEE tool by calling 'tfsmacs--process-command-sync-to-buffer'"
   ;remove quotes around  path if needed.
-  (when (string-equal "\"" (substring path 0 1))
+  (when (string-prefix-p "\"" path)
     (setq path (substring path 1 -1)))
   (let* ((only-name (file-name-nondirectory path))
          (filename (concat temporary-file-directory version ";" only-name))
          (command (list "print" (format "-version:%s" version) path)))
-    (tfsmacs--process-command-sync-to-buffer command filename)
+    (tfsmacs--process-command-sync-to-file command filename)
     filename))
 
 (defun tfsmacs-checkout (&optional filename)
@@ -257,7 +264,7 @@ writable."
          (command (append '("checkout") files-to-checkout)))
     (when files-to-checkout
       (message "TFS: Checking out file(s)...")
-      (tfsmacs--process-command-async-complete command 'tfsmacs--message-callback))))
+      (tfsmacs--process-command-async command 'tfsmacs--message-callback))))
 
 (defun tfsmacs-checkin ()
   "Perform a tf checkin on the file being visited by the current buffer.
@@ -462,7 +469,7 @@ The file to undo is deteremined this way:
                                ("Committed by" 30 t)
                                ("Comment" 0 t)])
   (setq tabulated-list-padding 1)
-  (setq tabulated-list-sort-key (cons "Changeset" t))
+  (setq tabulated-list-sort-key (cons "Date" t))
   (tabulated-list-init-header)
   (tablist-minor-mode))
 
@@ -765,7 +772,8 @@ Intended for internal use only."
     (insert "\n")
     (set-buffer buf)))
 
-
+; is it questionable to start the process as soon as the package loads?
+(tfsmacs--get-or-create-process) 
 (provide 'tfsmacs)
 
 ;;; tfsmacs.el ends here
