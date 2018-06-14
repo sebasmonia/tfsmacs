@@ -57,6 +57,10 @@ You can find this package in MELPA. This is the recommended way to install tfsma
 
 All commands have pretty self-explanatory names. There are a few special modes for pending changes and history described below.
 
+### Initial setup
+
+If you have never worked with TFS before, the function `tfsmacs-setup-collection` will help you setup your workspace and mappings. Just follow the prompts.
+
 ### Target selection
 
 Some commands alter their behaviour depending on the context:
