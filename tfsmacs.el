@@ -58,7 +58,7 @@
   "Name of the TFS log buffer."
   :type 'string)
 
-; with default values we will keep retrying for 15 seconds to complete the output
+;; with default values we will keep retrying for 15 seconds to complete the output
 (defcustom tfsmacs-async-command-timer 0.5
   "How often to check, in seconds, that a command has finished completing its output."
   :type 'float)
@@ -67,19 +67,22 @@
   "How many times to check that output was completed before giving up on the command."
   :type 'integer)
 
+
 (defvar tfsmacs--process-name "TEECLI")
 (defvar tfsmacs--changeset-buffer-name "*TFS Changeset*")
-; Used to repeat the command when using "g" in the status buffer. Buffer local.
+;; Used to repeat the command when using "g" in the status buffer. Buffer local.
 (defvar tfsmacs--buffer-status-dir nil)
-; Changeset ID in the changeset details window. Buffer local.
+;; Changeset ID in the changeset details window. Buffer local.
 (defvar tfsmacs--changeset-id "")
-; Used to determine the current file/dir in the history buffer
+;; Used to determine the current file/dir in the history buffer
 (defvar tfsmacs--history-target "")
-; Accumulates the output of the tf process until the command is complete
+;; Accumulates the output of the tf process until the command is complete
 (defvar tfsmacs--command-output-buffer "")
-; Used to count the number of retries parsing the output of a command
-; It is resetted every time new input arrives
+;; Used to count the number of retries parsing the output of a command
+;; It is resetted every time new input arrives
 (defvar tfsmacs--command-retries 0)
+;; Holds the setup info when running initial setup
+(defvar tfsmacs--setup-info "")
 
 (define-prefix-command 'tfsmacs-map)
 (define-key tfsmacs-map "p" 'tfsmacs-pending-changes)
@@ -102,20 +105,21 @@
       (tfsmacs--append-to-log "Creating new process instance...")
       (setq process (start-process tfsmacs--process-name buffer-name
                                    tfsmacs-cmd "@"))
-      ; testing if forcing process output helps with startup time
-      ; for newly created instances
+      ;; testing if forcing process output helps with startup time
+      ;; for newly created instances
       (process-send-string process "help eula\n")
       (set-process-filter process 'tfsmacs--process-command-async-callback))
     process))
 
 (defun tfsmacs--process-command-sync-to-file (command output-filename)
   "Create a new instance of the TEE process, execute COMMAND and write output to OUTPUT-FILENAME."
-  (let* ((collection-param (tfsmacs--get-collection-parameter))
-         (login-param (tfsmacs--get-login-parameter))
-         (params (append command (list collection-param login-param))))
-    (tfsmacs--append-to-log (format "COMMAND (sync): %s" (prin1-to-string params)))
-    (with-temp-file output-filename
-      (apply 'call-process tfsmacs-cmd nil t nil params))))
+  (tfsmacs--append-to-log (format "COMMAND (sync): %s" (prin1-to-string command)))
+  ;; This used to have the collection and login parameters, but it turns out
+  ;; that the "print" command doesn't support them.
+  ;; Opened this issue: https://github.com/Microsoft/team-explorer-everywhere/issues/270
+  ;; no resolution so far (2018-06-14)
+  (with-temp-file output-filename
+    (apply 'call-process tfsmacs-cmd nil t nil command)))
 
 (defun tfsmacs--process-command-async (command callback)
   "Run COMMAND in the TEE CLI process and call CALLBACK once it's done.
@@ -134,7 +138,7 @@ Output will be passed to the callback function as parameter."
 (defun tfsmacs--process-command-async-callback (_process output)
   "Accumulate the OUTPUT of PROCESS."
   (setq tfsmacs--command-output-buffer (concat tfsmacs--command-output-buffer output))
-  (setq tfsmacs--command-retries 1) ; Reset the retries counter as long as output is received
+  (setq tfsmacs--command-retries 1) ;; Reset the retries counter as long as output is received
   (message "TFS: Receiving command output..."))
 
 (defun tfsmacs--process-command-async-complete (callback)
@@ -153,15 +157,15 @@ If it did invoke CALLBACK, else re-schedule the function."
           (tfsmacs--append-to-log "---Incomplete output:---")
           (tfsmacs--append-to-log tfsmacs--command-output-buffer)
           (tfsmacs--append-to-log "-----------------------")
-          ; Just in case the command killed the process instance, this will start another one
-          ; or just return the existing one, which is inexpensive
+          ;; Just in case the command killed the process instance, this will start another one
+          ;; or just return the existing one, which is inexpensive
           (tfsmacs--get-or-create-process)
           (message "TFS: Command not completed. See log for details.")
           (funcall callback ""))))))
 
 (defun tfsmacs--process-command-async-schedule-check (callback)
   "Schedule `tfsmacs--process-command-async-complete` with CALLBACK."
-  (run-at-time tfsmacs-async-command-timer nil #'tfsmacs--process-command-async-complete callback))
+  (run-at-time tfsmacs-async-command-timer nil 'tfsmacs--process-command-async-complete callback))
     
 (defun tfsmacs--get-collection-parameter ()
   "Return the collection parameter if configured, or empty string."
@@ -188,7 +192,6 @@ If it did invoke CALLBACK, else re-schedule the function."
   "Append CMD-OUTPUT to the TFS Log, and show a \"command completed\" message."
   (tfsmacs--append-to-log cmd-output)
   (message "TFS: Command completed. See TFS log for details."))
-
 
 (defun tfsmacs--determine-target-files (filename prompt)
   "Determine the name of the file to use in a TF command, or prompt for one.
@@ -226,8 +229,8 @@ From: https://stackoverflow.com/questions/27284851/emacs-lisp-get-directory-name
 
 (defun tfsmacs--write-file-to-temp-directory (path version)
   "Write the VERSION of PATH to a temporary directory.
-It spins off a new instance of the TEE tool by calling 'tfsmacs--process-command-sync-to-buffer'"
-  ;remove quotes around  path if needed.
+It spins off a new instance of the TEE tool by calling 'tfsmacs--process-command-sync-to-file'"
+  ;; remove quotes around  path if needed.
   (when (string-prefix-p "\"" path)
     (setq path (substring path 1 -1)))
   (let* ((only-name (file-name-nondirectory path))
@@ -235,6 +238,47 @@ It spins off a new instance of the TEE tool by calling 'tfsmacs--process-command
          (command (list "print" (format "-version:%s" version) path)))
     (tfsmacs--process-command-sync-to-file command filename)
     filename))
+
+(defun tfsmacs-setup-collection ()
+  "Interactive, opinionated function to configure a collection.
+Not bound by default, you would run this operation once per collection."
+  (interactive)
+  (let ((url (read-string "The URL of your collection, for example: \"http://contoso.com:8080/tfs/Collection\": "))
+        (workspace-name (read-string "We need a name for your new workspace. It should be unique!: ")))
+    (setq tfsmacs--setup-info `((collection  . ,url)
+                               (workspace . ,workspace-name)))
+    (when (y-or-n-p "Now it's time to setup the workspace.  Ready? ")
+      (tfsmacs--process-command-async (list "workspace"
+                                            "-new"
+                                            (format "-collection:\"%s\"" url)
+                                            (tfsmacs--quote-string workspace-name))
+                                      'tfsmacs--workspace-callback))))
+
+(defun tfsmacs--workspace-callback (output)
+  "Process the OUTPUT of creating a new workspace and setups  mappings."
+  (let ((local-dir "")
+        (workspace-name (alist-get 'workspace tfsmacs--setup-info)))
+    (when (not (string-match-p "' created." output))
+      (progn
+        (tfsmacs--append-to-log (format "----WORKSPACE ERROR:\n%s\n-----------" output))
+        (error "Workspace creation failed.  See log for details")))
+    (setq local-dir (expand-file-name (read-directory-name "Directory to map $/ (TFS root) in your computer: "
+                                                           nil nil t)))
+    (tfsmacs--process-command-async (list "workfold"
+                                          "-map"
+                                          "$/"
+                                          (tfsmacs--quote-string local-dir)
+                                          (format "-workspace:\"%s\"" workspace-name))
+                                    'tfsmacs--mapping-callback)))
+
+(defun tfsmacs--mapping-callback (output)
+  "Process OUTPUT of setting the $/ mapping."
+  ;; For some mystical reason the workfold command has ZERO output.
+  ;; On error we get more info though, so let's assume that "empty output" = "good"
+  (tfsmacs--append-to-log (concat "Mapping: -" output "-"))
+  (when (not (string-empty-p output))
+    (error "Mapping setup failed.  See log for details"))
+  (message "TFS: Setup completed. It is recommended to set the collection URL using Customize."))
 
 (defun tfsmacs-checkout (&optional filename)
   "Perform a tf checkout (edit).
@@ -604,7 +648,7 @@ OUTPUT is the XML output from \"tf history\"."
 
 (defun tfsmacs--format-history-node-date (date-string)
   "Convert DATE-STRING to a better representation."
-  ; Maybe it is worth it to do proper date formatting. TODO?
+  ;; Maybe it is worth it to do proper date formatting. TODO?
   (replace-regexp-in-string "T" " " (substring date-string  0 -9)))
 
 (defun tfsmacs--changeset-callback (output)
@@ -678,7 +722,7 @@ If VERSION to get is not provided, it will be prompted."
     (if (equal (length items) 1)
         (progn
           (message "TFS: Retrieving files to compare. This operation can take a few seconds.")
-          (let* ((local (substring (car items) 1 -1)) ; these items are always quoted, remove the quotes
+          (let* ((local (substring (car items) 1 -1)) ;; these items are always quoted, remove the quotes
                  (server (tfsmacs--write-file-to-temp-directory local "T")))
             (ediff-files local server)))
       (error "Select only one file to compare to latest version"))))
@@ -697,7 +741,7 @@ If VERSION to get is not provided, it will be prompted."
 (define-key tfsmacs-status-mode-map (kbd "g") 'tfsmacs-pending-changes)
 (define-key tfsmacs-status-mode-map (kbd "RET") 'tfsmacs--status-mode-visit-item)
 (define-key tfsmacs-status-mode-map  (kbd "D") 'tfsmacs--status-mode-difference)
-;(define-key tfsmacs-status-mode-map (kbd "RET") 'tfsmacs--status-mode-shelve)
+;;(define-key tfsmacs-status-mode-map (kbd "RET") 'tfsmacs--status-mode-shelve)
 
 (defun tfsmacs-pending-changes ()
   "Perform a recursive tf status.  Displays the result in a separate buffer."
@@ -733,7 +777,7 @@ OUTPUT is the XML result of \"tf status\"."
         (erase-buffer))
       (with-current-buffer buffer
         (tfsmacs-status-mode)
-        ;Buffer local vars
+        ;; Buffer local vars
         (setq tabulated-list-entries parsed-data)
         (setq tfsmacs--buffer-status-dir directory)
         (tablist-revert)
@@ -779,8 +823,8 @@ Intended for internal use only."
     (insert "\n")
     (set-buffer buf)))
 
-; is it questionable to start the process as soon as the package loads?
-(tfsmacs--get-or-create-process) 
+;; is it questionable to start the process as soon as the package loads?
+(tfsmacs--get-or-create-process)
 (provide 'tfsmacs)
 
 ;;; tfsmacs.el ends here
