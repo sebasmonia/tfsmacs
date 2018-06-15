@@ -4,7 +4,7 @@
 This package deals only with the source control aspect, not PBIs, sprints,
 builds, or any other thing contained in TFS.
 
-** BREAKING CHANGE NOTICE **: Instead of configuring a collection, you have to customize the workspace name now.
+**BREAKING CHANGE NOTICE**: Instead of configuring a collection, you have to customize the workspace name now.
 The original code used the collection, but the workspace works better as it also contains mappings information.
 
 ## Table of contents
