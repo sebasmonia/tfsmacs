@@ -98,6 +98,7 @@
 (define-key tfsmacs-map "u" 'tfsmacs-undo)
 (define-key tfsmacs-map "-" 'tfsmacs-delete)
 (define-key tfsmacs-map "+" 'tfsmacs-add)
+(define-key tfsmacs-map "s" 'tfsmacs-shelvesets)
 
 (defun tfsmacs--append-to-log (text)
   "Append TEXT to the TFS Messages buffer.
