@@ -17,6 +17,7 @@ The original code used the collection, but the workspace works better as it also
      * [Manual installation](#manual-installation)
      * [Configuration](#configuration)
    * [Manual](#manual)
+     * [Initial setup](#initial-setup)
      * [Target selection](#target-selection)
      * [Pending changes](#pending-changes)
      * [History](#history)
@@ -61,7 +62,8 @@ All commands have pretty self-explanatory names. There are a few special modes f
 
 ### Initial setup
 
-If you have never worked with TFS before, the function `tfsmacs-setup-collection` will help you setup your workspace and mappings. Just follow the prompts.
+If you have never worked with TFS before, the function `tfsmacs-setup-workspace` will help you setup your workspace and mappings. Just follow the prompts.
+The next step is downloading code from the server, you can navigate the directories with `tfsmacs-server-directories`. Once you have found the directory you are interested in, place the point over it and press "G". This will create the necessary directories in your local environment and download the files.
 
 ### Target selection
 
