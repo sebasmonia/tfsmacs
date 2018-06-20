@@ -58,12 +58,19 @@ You can find this package in MELPA. This is the recommended way to install tfsma
 
 ## Manual
 
-All commands have pretty self-explanatory names. There are a few special modes for pending changes and history described below.
-
 ### Initial setup
 
 If you have never worked with TFS before, the function `tfsmacs-setup-workspace` will help you setup your workspace and mappings. Just follow the prompts.
 The next step is downloading code from the server, you can navigate the directories with `tfsmacs-server-directories`. Once you have found the directory you are interested in, place the point over it and press "G". This will create the necessary directories in your local environment and download the files.
+
+I recommend you customize `tfsmacs-current-workspace` (if you used the included setup function, it takes care of this step for you). If your organization is nuts (or really big) and you deal with several collections, you can customize `tfsmacs-workspaces-alist` and then call `tfsmacs-switch-workspace` to move between them easily.
+
+### Getting help
+
+Every function in the package has detailed documentation, you can use `describe-function` (C-h f) to find out what they do. Let me know, or submit a pull request, if you find something lacking in the docs.
+In every special buffer opened by tfsmacs you can use "h" to open a help pop up window that describes the bindings available.
+
+Finally, I recommend people who have never used TFS before to take a quick read at the docs. The objective of tfsmacs is to cover most of the day to day operations, not everything the command line tool can do (even if that's the long term goal). Also, the lingo in TFVC is different than that of most other similar tools (check in = commit and undo = revert, for example).
 
 ### Target selection
 
@@ -78,7 +85,7 @@ raised
 * When none of the above work, prompt for a file
 
 This is relevant for the following commands: `tfsmacs-add`, `tfsmacs-checkout`,
-`tfsmacs-history`, `tfsmacs-rename`, `tfsmacs-undo`.
+`tfsmacs-delete`, `tfsmacs-get`,  `tfsmacs-history`, `tfsmacs-rename`, `tfsmacs-undo`.
 
 ### Pending Changes
 
