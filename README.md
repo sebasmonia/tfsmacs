@@ -18,6 +18,7 @@ The original code used the collection, but the workspace works better as it also
      * [Configuration](#configuration)
    * [Manual](#manual)
      * [Initial setup](#initial-setup)
+     * [Getting help](#getting-help)
      * [Target selection](#target-selection)
      * [Pending changes](#pending-changes)
      * [History](#history)
