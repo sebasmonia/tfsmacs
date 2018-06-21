@@ -1060,7 +1060,8 @@ OUTPUT is the command's output"
          "--TFS Shelvesets help--\n\n"
          "This mode is derived from tabulated-list, so the usual bindings for marking elements work "
          "as expected (m and u to mark and unmark, for example).\n\n"
-         "R (retrieve) unshelves the shelve under point or marked (only one can be marked).\n\n"))
+         "R (retrieve) unshelves the shelve under point or marked (only one can be marked).\n\n"
+         "D shows details for the current/marked shelveset in a separate buffer."))
   (tfsmacs--show-help))
 
 (defun tfsmacs-shelvesets (&optional owner)
