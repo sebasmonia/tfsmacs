@@ -37,6 +37,7 @@
 
 (require 'ido)
 (require 'dom)
+(require 'cl-lib)
 (require 'tablist)
 
 (defgroup tfsmacs nil
@@ -1022,7 +1023,7 @@ OUTPUT is the XML result of \"tf status\"."
   (let* ((items (tfsmacs--shelvesets-mode-get-marked-items))
          (to-unshelve (car items))
          (as-string (format "\"%s;%s\"" (car to-unshelve) (cadr to-unshelve)))
-         (url (car (remove-if-not (lambda (x): (string-prefix-p "http://" x))
+         (url (car (cl-remove-if-not (lambda (x): (string-prefix-p "http://" x))
                                   (split-string output)))))
     (when (get-buffer tfsmacs--shelveset-buffer-name)
       (kill-buffer tfsmacs--shelveset-buffer-name))
