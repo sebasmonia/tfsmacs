@@ -4,9 +4,6 @@
 This package deals only with the source control aspect, not PBIs, sprints,
 builds, or any other thing contained in TFS.
 
-**BREAKING CHANGE NOTICE**: Instead of configuring a collection, you have to customize the workspace name now.
-The original code used the collection, but the workspace works better as it also contains mappings information.
-
 ## Table of contents
 
 <!--ts-->
@@ -22,6 +19,7 @@ The original code used the collection, but the workspace works better as it also
      * [Target selection](#target-selection)
      * [Pending changes](#pending-changes)
      * [History](#history)
+     * [Shelvesets](#shelvesets)
    * [Team Explorer Everywhere vs tf.exe](#team-explorer-everywhere-vs-tfexe)
    * [Special thanks](#special-thanks)
 <!--te-->
@@ -30,8 +28,13 @@ The original code used the collection, but the workspace works better as it also
 
 ### Prerequisites
 
-The first step is to get the "Team Explorer Everywhere Command Line Client" or "TEE CLC" from the [Team Explorer Everywhere releases page](https://github.com/Microsoft/team-explorer-everywhere/releases). More installation instructions can be found in the README for the repo.
-Documentation specific to the TEE CLI can be a bit hard to find as most web searches return info on the regular TF.exe that is shipped with Visual Studio (to add to the confusion, both tools share a lot of commands). The reference specific to TEE CLI on MS Docs is [here](https://docs.microsoft.com/en-us/previous-versions/visualstudio/visual-studio-2010/gg413282(v=vs.100)).
+The first step is to get the "Team Explorer Everywhere Command Line Client" or "TEE CLC"
+from the [Team Explorer Everywhere releases page](https://github.com/Microsoft/team-explorer-everywhere/releases).
+More installation instructions can be found in the README for the repo.
+Documentation specific to the TEE CLI can be a bit hard to find as most web searches
+return info on the regular TF.exe that is shipped with Visual Studio (to add to the confusion,
+both tools share a lot of commands). The reference specific to TEE CLI on MS Docs
+is [here](https://docs.microsoft.com/en-us/previous-versions/visualstudio/visual-studio-2010/gg413282(v=vs.100)).
 
 **IMPORTANT: Run "tf eula" to accept the TEE license or the tool won't work!**
 
@@ -61,17 +64,29 @@ You can find this package in MELPA. This is the recommended way to install tfsma
 
 ### Initial setup
 
-If you have never worked with TFS before, the function `tfsmacs-setup-workspace` will help you setup your workspace and mappings. Just follow the prompts.
-The next step is downloading code from the server, you can navigate the directories with `tfsmacs-server-directories`. Once you have found the directory you are interested in, place the point over it and press "G". This will create the necessary directories in your local environment and download the files.
+If you have never worked with TFS before, the function `tfsmacs-setup-workspace` will help you setup your
+workspace and mappings. Just follow the prompts.
+The next step is downloading code from the server, you can navigate the directories with `tfsmacs-server-directories`.
+Once you have found the directory you are interested in, place the point over it and press "G".
+This will create the necessary directories in your local environment and download the files.
 
-I recommend you customize `tfsmacs-current-workspace` (if you used the included setup function, it takes care of this step for you). If your organization is nuts (or really big) and you deal with several collections, you can customize `tfsmacs-workspaces-alist` and then call `tfsmacs-switch-workspace` to move between them easily.
+I recommend you customize `tfsmacs-current-workspace` (if you used the included setup function, it takes
+care of this step for you). If your organization is nuts (or really big) and you deal with several
+collections, you can customize `tfsmacs-workspaces-alist` and then call `tfsmacs-switch-workspace` to
+move between them easily.
 
 ### Getting help
 
-Every function in the package has detailed documentation, you can use `describe-function` (C-h f) to find out what they do. Let me know, or submit a pull request, if you find something lacking in the docs.
-In every special buffer opened by tfsmacs you can use "h" to open a help pop up window that describes the bindings available.
+Every function in the package has detailed documentation, you can use `describe-function` (C-h f) to
+find out what they do. Let me know, or submit a pull request, if you find something lacking in the docs.
 
-Finally, I recommend people who have never used TFS before to take a quick read at the docs. The objective of tfsmacs is to cover most of the day to day operations, not everything the command line tool can do (even if that's the long term goal). Also, the lingo in TFVC is different than that of most other similar tools (check in = commit and undo = revert, for example).
+In every special buffer opened by tfsmacs you can use "h" to open a help pop up window that describes
+the bindings available.
+
+Finally, I recommend people who have never used TFS before to take a quick read at the docs. The objective
+of tfsmacs is to cover most of the day to day operations, not everything the command line tool can do (even
+if that's the long term goal). Also, the lingo in TFVC is different than that of most other similar tools
+(check in = commit and undo = revert, for example).
 
 ### Target selection
 
@@ -95,26 +110,25 @@ window. There's a somewhat similar implementation using
 tabulated-list-mode and tablist, `tfsmacs-pending-changes`.
 It targets a directory, autocompleting with the `projetile` root if possible,
 else it will autocomplete to the current directory of the buffer.
-Once in the Pending Changes buffer you can:
-
-* Mark and unmark files with the usual bindings m, u, etc.
-* RET to visit the file at point
-* R to Revert/undo changes on the files marked
-* C to Check in the files marked.
-* D to diff the version in your local with the latest on the server (using ediff)
+Once in the Pending Changes buffer use "h" to check out the available operations, 
+which include check in, create shelves and diff against server version.
 
 ### History
 
 This is another tabulated-list derived mode, launched by `tfsmacs-history`. You can
 request the history of a single file, or a directory. In the later case you will
 get recursive history to all items under the dir.
-The commands operate on the file under point, or the file marked if any. The 
-defaults are as follows:
+The commands operate on the file under point, or the file marked if any. In the
+history buffer, use "h" to check out the available operations, which include get a
+specific version, diff two versions marked and see the changeset details.
 
-* Mark and unmark files as usual m, U, etc.
-* C to open the changeset details for the item selected
-* T ("This version"), to get the version selected
-* D to diff the two versions marked (using ediff)
+### Shelvesets
+
+More tabulated-list modes! Use `tfsmacs-shelvesets` to get a list of shelves from
+the server. You can filter by owner (blank for only your shelves). The usual "h"
+binding will show up all the operations available.  
+You can create new shelves using the Pending Changes window to select the files
+to include.
 
 ## Team Explorer Everywhere vs tf.exe
 
