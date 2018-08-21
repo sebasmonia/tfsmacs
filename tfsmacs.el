@@ -76,11 +76,12 @@
 (defvar tfsmacs--changeset-buffer-name "*TFS Changeset*")
 (defvar tfsmacs--shelveset-buffer-name "*TFS Shelveset*")
 (defvar tfsmacs--server-dirs-buffer-name "*TFS Directories*")
+(defvar tfsmacs--server-dirs-diff-buffer-name "*TFS Directory Compare*")
 (defvar tfsmacs--current-help-message "")
 ;; Keeps track of the current directory when navigating server files using "tf dir"
 (defvar tfsmacs--server-current-dir "$/")
-;; Directory on which "tfsmacs--server-compare-dir " was invoked on
-(defvar tfsmacs--server-compare-dir "")
+;; Local path for directory on which "tfsmacs--server-compare-dir " was invoked on
+(defvar tfsmacs--server-compare-local-dir "")
 ;; Used to repeat the command when using "g" in the status buffer. Buffer local.
 (defvar tfsmacs--buffer-status-dir nil)
 ;; Changeset ID in the changeset details window. Buffer local.
@@ -540,7 +541,7 @@ PATH and FILES are used only for internal calls."
         (setq buffer-read-only t)
         (local-set-key "G" 'tfsmacs--server-get-directory)
         (local-set-key "F" 'tfsmacs--server-show-files)
-        ;;(local-set-key "D" 'tfsmacs--server-compare-dirs)
+        (local-set-key "D" 'tfsmacs--server-compare-dirs)
         (local-set-key "^" 'tfsmacs--server-go-up)
         (local-set-key (kbd "RET") 'tfsmacs--server-go-down)
         (local-set-key "p" 'previous-line)
@@ -592,9 +593,9 @@ Showing files all the time could get quite slow.  Hence this command."
   (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
          (directory (concat tfsmacs--server-current-dir "/" (substring line 1))))
     (when (y-or-n-p (format "Run GET on \"%s\" and its subdirectories? " directory))
-      (tfsmacs--async-command (list "resolvePath" (tfsmacs--quote-string directory)) 'tfsmacs--server-get-directory--callback))))
+      (tfsmacs--async-command (list "resolvePath" (tfsmacs--quote-string directory)) 'tfsmacs--server-get-directory-callback))))
 
-(defun tfsmacs--server-get-directory--callback (output)
+(defun tfsmacs--server-get-directory-callback (output)
   "Start the recursive get on the folder listed in OUTPUT, after creating it."
   (when (> tfsmacs--command-retries 0)
     (setq output (file-name-as-directory (substring output 0 -2))) ;; remove trailing new lines
@@ -604,16 +605,49 @@ Showing files all the time could get quite slow.  Hence this command."
 (defun tfsmacs--server-compare-dirs ()
   "Show the file differences between local and server directory."
   (interactive)
-  (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
-         (directory (concat tfsmacs--server-current-dir "/" (substring line 1)))
-         ;;(command (list "resolvePath" line)))
-         (command (list "dir" directory "-recursive")))
-    (setq tfsmacs--server-compare-dir directory)
-    (tfsmacs--async-command command 'tfsmacs--server-compare-dirs-callback)))
+  (let ((command (list "resolvePath" (tfsmacs--quote-string tfsmacs--server-current-dir))))
+    (tfsmacs--async-command command 'tfsmacs--server-compare-dirs-local-path)))
 
-(defun tfsmacs--server-compare-dirs-callback (output)
-  "Process the OUTPUT of the first step for server-local dir compare."
-  (tfsmacs--append-to-log (format "---%s---" output)))
+(defun tfsmacs--server-compare-dirs-local-path (output)
+  "Obtain from OUTPUT the local path for dir compare, and list server contents."
+  (setq tfsmacs--server-compare-local-dir (car (split-string output "\n")))
+  (tfsmacs--async-command (list "dir" (tfsmacs--quote-string tfsmacs--server-current-dir)) 'tfsmacs--server-compare-dirs-results))
+
+(defun tfsmacs--server-compare-dirs-results (output)
+  "Process contents in OUTPUT and compare with local directory."
+  (let* ((server-contents (tfsmacs--server-compare-dirs-clean-output output))
+         (local-contents (directory-files tfsmacs--server-compare-local-dir))
+         (only-local (cl-remove-if (lambda (x): (member x server-contents)) local-contents))
+         (only-server (cl-remove-if (lambda (x): (member x local-contents)) server-contents)))
+    (when (not only-server)
+      (setq only-server '("--None--")))
+    (when (not only-local)
+      (setq only-local '("--None--")))
+    (get-buffer-create tfsmacs--server-dirs-diff-buffer-name)
+    (with-current-buffer tfsmacs--server-dirs-diff-buffer-name
+      (setq buffer-read-only nil)
+      (kill-region (point-min) (point-max))
+      (insert "Server only elements:\n")
+      (insert (mapconcat 'identity only-server "\n"))
+      (insert "\n\nLocal only elements:\n")
+      (insert (mapconcat 'identity only-local "\n"))
+      (setq buffer-read-only t)
+      (switch-to-buffer-other-window tfsmacs--server-dirs-diff-buffer-name))
+    (message "TFS: Displaying directory compare result.")))
+
+(defun tfsmacs--server-compare-dirs-clean-output (server-contents)
+  "Process SERVER-CONTENTS to extract only the files and dirs."
+  (let* ((cleaned (cl-remove-if (lambda (x): (or (string-empty-p x) (string-suffix-p "item(s)." x)))
+                                (cdr (split-string server-contents "\n"))))
+         (no-$-prefix (mapcar 'tfsmacs--server-compare-dirs-remove$ cleaned)))
+    (append '("." "..") no-$-prefix)))
+
+(defun tfsmacs--server-compare-dirs-remove$ (a-string)
+  "Remove prefix $ from A-STRING if present, else return it unmodified."
+  (if (string-prefix-p "$" a-string)
+      (substring a-string 1)
+    a-string))
+
 
 (defun tfsmacs-get (&optional filename version)
   "Perform a tf get on a file.
