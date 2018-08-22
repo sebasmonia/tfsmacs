@@ -59,6 +59,10 @@
   "Name of the TFS log buffer."
   :type 'string)
 
+(defcustom tfsmacs-show-less-messages t
+  "Display less messages when processing commands."
+  :type 'boolean)
+
 (defcustom tfsmacs-async-command-timer 0.5
   "How often to check, in seconds, that a command has finished completing its output."
   :type 'float)
@@ -129,6 +133,11 @@ Intended for internal use only."
   (with-output-to-temp-buffer "*TFS Help*"
     (princ help-message)))
 
+(defun tfsmacs--optional-message (text)
+  "Display TEXT as message depending on the value of `tfsmacs-show-less-messages`."
+  (when (not tfsmacs-show-less-messages)
+    (message text)))
+
 (defun tfsmacs--get-or-create-process ()
   "Create or return the TEE process."
   (let ((buffer-name (format "*%s*" tfsmacs--process-name))
@@ -178,7 +187,7 @@ If NO-WORKSPACE is provided, said parameter won't be added."
     (tfsmacs--append-to-log (format "COMMAND (async): %s" command-string))
     (setq tfsmacs--command-output-buffer "")
     (setq tfsmacs--command-retries 1)
-    (message "TFS: Running command...")
+    (tfsmacs--optional-message "TFS: Running command...")
     (process-send-string (tfsmacs--get-or-create-process) command-string)
     (tfsmacs--async-command-schedule-check callback)))
   
@@ -190,7 +199,7 @@ If NO-WORKSPACE is provided, said parameter won't be added."
       (progn
         (setq tfsmacs--command-output-buffer (concat tfsmacs--command-output-buffer output))
         (setq tfsmacs--command-retries 1) ;; Reset the retries counter as long as output is received
-        (message "TFS: Receiving command output..."))
+        (tfsmacs--optional-message "TFS: Receiving command output..."))
     (progn
       (tfsmacs--append-to-log (format "Timedout command partial output:\n%s\n-------"
                                       output)))))
@@ -201,7 +210,7 @@ If it did invoke CALLBACK, else re-schedule the function."
   (setq tfsmacs--command-retries (+ tfsmacs--command-retries 1))
   (cond ((string-match "ExitCode: 0\n" tfsmacs--command-output-buffer)
          (let ((output (replace-regexp-in-string "ExitCode: 0\n" "" tfsmacs--command-output-buffer)))
-           (message "TFS: Processing command output...")
+           (tfsmacs--optional-message "TFS: Processing command output...")
            (funcall callback output)))
         ((string-match "ExitCode: " tfsmacs--command-output-buffer) ;;  will match all exit codes BUT 0 (since it matches in prev. expression)
          (tfsmacs--async-command-handle-error)
@@ -1102,7 +1111,7 @@ If VERSION to get is not provided, it will be prompted."
          (as-string (format "\"%s;%s\"" (car to-unshelve) (cadr to-unshelve))))
     (if (equal (length items) 1)
         (progn
-          (message "TFS: unshelving...")
+          (message "TFS: Unshelving...")
           (tfsmacs--async-command (list "unshelve" as-string) 'tfsmacs--shelvesets-mode-unshelve-callback))
       (error "Only one item should be selected for this operation"))))
 
@@ -1123,7 +1132,7 @@ If VERSION to get is not provided, it will be prompted."
         (progn
           (when (get-buffer tfsmacs--shelveset-buffer-name)
             (kill-buffer tfsmacs--shelveset-buffer-name))
-          (message "TFS: retrieving shelveset info...")
+          (message "TFS: Retrieving shelveset info...")
           (tfsmacs--async-command (list "shelvesets" "-format:detailed" as-string) 'tfsmacs--shelvesets-mode-details-callback1))
       (error "Only one item should be selected for this operation"))))
 
@@ -1134,7 +1143,7 @@ If VERSION to get is not provided, it will be prompted."
     (progn
       (with-current-buffer (get-buffer-create tfsmacs--shelveset-buffer-name)
         (insert output))
-      (message "TFS: retrieving collection URL...")
+      (tfsmacs--optional-message "TFS: Retrieving collection URL...")
       (tfsmacs--async-command (list "workfold") 'tfsmacs--shelvesets-mode-details-callback2))))
 
 (defun tfsmacs--shelvesets-mode-details-callback2 (output)
