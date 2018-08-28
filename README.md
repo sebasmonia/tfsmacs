@@ -107,7 +107,7 @@ This is relevant for the following commands: `tfsmacs-add`, `tfsmacs-checkout`,
 
 People coming from Visual Studio are probably used to the Pending Changes
 window. There's a somewhat similar implementation using 
-tabulated-list-mode and tablist, `tfsmacs-pending-changes`.
+tabulated-list-mode and tablist, `tfsmacs-pending-changes` (C-c t p).
 It targets a directory, autocompleting with the `projetile` root if possible,
 else it will autocomplete to the current directory of the buffer.
 Once in the Pending Changes buffer use "h" to check out the available operations, 
@@ -115,7 +115,7 @@ which include check in, create shelves and diff against server version.
 
 ### History
 
-This is another tabulated-list derived mode, launched by `tfsmacs-history`. You can
+This is another tabulated-list derived mode, launched by `tfsmacs-history` (C-c t h). You can
 request the history of a single file, or a directory. In the later case you will
 get recursive history to all items under the dir.
 The commands operate on the file under point, or the file marked if any. In the
@@ -124,7 +124,7 @@ specific version, diff two versions marked and see the changeset details.
 
 ### Shelvesets
 
-More tabulated-list modes! Use `tfsmacs-shelvesets` to get a list of shelves from
+More tabulated-list modes! Use `tfsmacs-shelvesets` (C-c t s) to get a list of shelves from
 the server. You can filter by owner (blank for only your shelves). The usual "h"
 binding will show up all the operations available.  
 You can create new shelves using the Pending Changes window to select the files
@@ -139,6 +139,8 @@ work item (PBI). Most shops using TFS have this as a requirement.
 One advantage of using this tool is that we can keep a process open which
 seems to be much faster than calling the command each time, _except on the
 first call_.
+
+A second advantage is that the client is written in Java, so it's multi-platform.
 
 Retrieving file contents for diffs is synchronous, so those operations will block
 Emacs. Alternatives are being evaluated, and suggestions are welcomed.
