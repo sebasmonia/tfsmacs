@@ -228,7 +228,8 @@ If it did invoke CALLBACK, else re-schedule the function."
 
 (defun tfsmacs--async-command-handle-timeout ()
   "Reset the state after a command timed out."
-  (message "TFS: Command timed out. Command output, if any, will be dumped in the log buffer.")
+  (message (format "TFS: Command timed out. Command output, if any, will be dumped in the  buffer %s."
+                   tfsmacs-log-buffer-name))
   (tfsmacs--append-to-log (format "Timedout command partial output:\n%s\n-----------------------"
                                   tfsmacs--command-output-buffer))
   ;; prevent the "receiving output" message if we already timed out, and send subsequent output
@@ -269,7 +270,8 @@ If it did invoke CALLBACK, else re-schedule the function."
   "Append OUTPUT to the TFS Log, and show a \"command completed\" message."
   (when (> tfsmacs--command-retries 0) ;; if the command failed, don't run
     (tfsmacs--append-to-log output)
-    (message "TFS: Command completed. See TFS log for details.")))
+    (message (format "TFS: Command completed. Check out the buffer %s details."
+                     tfsmacs-log-buffer-name))))
 
 (defun tfsmacs--determine-target-files (filename prompt)
   "Determine the name of the file to use in a TF command, or prompt for one.
@@ -716,6 +718,7 @@ The directory to get is deteremined this way:
          (command (list "get" "-recursive" (tfsmacs--quote-string dir-to-get))))
     (when force
       (setq command (append command '("-force"))))
+    (message (format "TFS: Recursively getting directory %s" dir-to-get))
     (when dir-to-get
       (tfsmacs--async-command command 'tfsmacs--short-message-callback t))))
 
@@ -844,7 +847,7 @@ How the file is determined:
         (let* ((source (car files-for-history))
                (command (list "history" (tfsmacs--quote-string source) )))
           (setq command (append command (tfsmacs--history-parameters-builder)))
-          (message "TFS: Getting item history...")
+          (message (format "TFS: Getting history for \"%s\"..." source))
           (setq tfsmacs--history-target source)
           (tfsmacs--async-command command 'tfsmacs--history-callback))
       (error "Couldn't determine history target"))))
@@ -932,7 +935,8 @@ If VERSION to get is not provided, it will be prompted."
     (kill-buffer tfsmacs--changeset-buffer-name))
   (with-current-buffer (get-buffer-create tfsmacs--changeset-buffer-name)
     (set (make-local-variable 'tfsmacs--changeset-id) version))
-  (message "TFS: Getting changeset details...")
+  (message (format "TFS: Getting changeset %s details."
+                   version))
   (tfsmacs--async-command (list "changeset" version) 'tfsmacs--changeset-callback))
 
 (define-derived-mode tfsmacs-status-mode tabulated-list-mode "TFS Status Mode" "Major mode TFS Status, displays current pending changes"
@@ -1051,7 +1055,8 @@ If VERSION to get is not provided, it will be prompted."
 (defun tfsmacs--get-pending-changes (directory)
   "Internal call to run the status command in DIRECTORY."
   (let* ((command (list "status" directory "-recursive" "-nodetect"  "-format:xml")))
-    (message "TFS: Obtaining list of pending changes...")
+    (message (format "TFS: Obtaining list of pending changes for directory %s"
+                     directory))
     (tfsmacs--async-command command 'tfsmacs--status-callback)))
 
 (defun tfsmacs--status-callback (output)
@@ -1111,7 +1116,7 @@ If VERSION to get is not provided, it will be prompted."
          (as-string (format "\"%s;%s\"" (car to-unshelve) (cadr to-unshelve))))
     (if (equal (length items) 1)
         (progn
-          (message "TFS: Unshelving...")
+          (message (format "TFS: Unshelving %s" as-string))
           (tfsmacs--async-command (list "unshelve" as-string) 'tfsmacs--shelvesets-mode-unshelve-callback))
       (error "Only one item should be selected for this operation"))))
 
@@ -1120,7 +1125,7 @@ If VERSION to get is not provided, it will be prompted."
   ;; Unshelving has empty output, but we can use our flag
   ;; to detect is the command ran fine.
   (when (> tfsmacs--command-retries 0) ;; if the command failed, don't run
-    (message "TFS: Changes unshelved.")))0
+    (message "TFS: Changes unshelved.")))
 
 (defun tfsmacs--shelvesets-mode-details ()
   "Unshelve to current workspace when in tfsmacs-shelvesets-mode."
@@ -1132,7 +1137,7 @@ If VERSION to get is not provided, it will be prompted."
         (progn
           (when (get-buffer tfsmacs--shelveset-buffer-name)
             (kill-buffer tfsmacs--shelveset-buffer-name))
-          (message "TFS: Retrieving shelveset info...")
+          (message (format "TFS: Retrieving shelveset info for %s" as-string))
           (tfsmacs--async-command (list "shelvesets" "-format:detailed" as-string) 'tfsmacs--shelvesets-mode-details-callback1))
       (error "Only one item should be selected for this operation"))))
 
@@ -1206,7 +1211,7 @@ If OWNER is not provided in the call, it will be prompted."
   "Process the shelvesets list and display the ‘tfsmacs-shelvesets-mode’ buffer.
 OUTPUT is the XML output from \"tf shelvesets\"."
   (when (> tfsmacs--command-retries 0) ;; if the command failed, don't run
-    (message "TFS: Showing shelvesets...")
+    (message "TFS: Displaying shelvesets. Press \"h\" to show available bindings.")
     (let ((parsed-data (tfsmacs--get-shelvesets-data-for-tablist output)))
       (let* ((shelvesets-bufname (format "*TFS Shelvesets*"))
              (buffer (get-buffer-create shelvesets-bufname)))
