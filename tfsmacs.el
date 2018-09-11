@@ -328,6 +328,18 @@ It spins off a new instance of the TEE tool by calling 'tfsmacs--sync-command-to
 From http://ergoemacs.org/emacs/modernization_elisp_lib_problem.html."
   (replace-regexp-in-string "\\`[ \t\n]*" "" (replace-regexp-in-string "[ \t\n]*\\'" "" string)))
 
+(defun tfsmacs--quote-string (param)
+  "Surround PARAM with quotes using format.  Useful for paths and comments."
+  (format "\"%s\"" param))
+
+(defun tfsmacs--quote-list (param-list)
+  "Surround each item in PARAM-LIST with quotes using `tfsmacs--quote-string`."
+  (mapcar 'tfsmacs--quote-string param-list))
+
+(defun tfsmacs--single-item-list (lst)
+  "Return non-nil if LST is a single item lst."
+  ( list(equal (length lst) 1)))
+
 (defun tfsmacs-switch-workspace ()
   "Change to configuration to use a different workspace.
 The list of possible values is read from the alist `tfsmacs-workspaces`."
@@ -793,7 +805,7 @@ The function returns (changesed-id server-path) for each element."
   (interactive)
   (let* ((items (tfsmacs--history-mode-get-marked-items))
          (to-get (car items)))
-    (if (equal (length items) 1)
+    (if (tfsmacs--single-item-list items)
         (progn
           (message (format "TFS: Getting changeset %s" (car to-get)))
           (tfsmacs-get (cadr to-get) (car to-get)))
@@ -804,7 +816,7 @@ The function returns (changesed-id server-path) for each element."
   (interactive)
   (let* ((items (tfsmacs--history-mode-get-marked-items))
          (to-get (car items)))
-    (if (equal (length items) 1)
+    (if (tfsmacs--single-item-list items)
         (progn
           (message (format "TFS: Getting changeset details %s" (car to-get)))
           (tfsmacs-changeset (car to-get)))
@@ -950,14 +962,6 @@ If VERSION to get is not provided, it will be prompted."
   (tabulated-list-init-header)
   (tablist-minor-mode))
 
-(defun tfsmacs--quote-string (param)
-  "Surround PARAM with quotes using format.  Useful for paths and comments."
-  (format "\"%s\"" param))
-
-(defun tfsmacs--quote-list (param-list)
-  "Surround each item in PARAM-LIST with quotes using `tfsmacs--quote-string`."
-  (mapcar 'tfsmacs--quote-string param-list))
-
 (defun tfsmacs--status-mode-checkin ()
   "Process files marked in ‘tfsmacs-status-mode’ for check in."
   (interactive)
@@ -980,7 +984,7 @@ If VERSION to get is not provided, it will be prompted."
   "Compares pending change to latest version."
   (interactive)
   (let ((items (tfsmacs--status-mode-get-marked-items)))
-    (if (equal (length items) 1)
+    (if (tfsmacs--single-item-list items)
         (progn
           (message "TFS: Retrieving files to compare. This operation can take a few seconds.")
           (let* ((local (car items))
@@ -1119,7 +1123,7 @@ If VERSION to get is not provided, it will be prompted."
   (let* ((items (tfsmacs--shelvesets-mode-get-marked-items))
          (to-unshelve (car items))
          (as-string (format "\"%s;%s\"" (car to-unshelve) (cadr to-unshelve))))
-    (if (equal (length items) 1)
+    (if (tfsmacs--single-item-list items)
         (progn
           (message (format "TFS: Unshelving %s" as-string))
           (tfsmacs--async-command (list "unshelve" as-string) 'tfsmacs--shelvesets-mode-unshelve-callback))
@@ -1138,7 +1142,7 @@ If VERSION to get is not provided, it will be prompted."
   (let* ((items (tfsmacs--shelvesets-mode-get-marked-items))
          (to-unshelve (car items))
          (as-string (format "\"%s;%s\"" (car to-unshelve) (cadr to-unshelve))))
-    (if (equal (length items) 1)
+    (if (tfsmacs--single-item-list items)
         (progn
           (when (get-buffer tfsmacs--shelveset-buffer-name)
             (kill-buffer tfsmacs--shelveset-buffer-name))
