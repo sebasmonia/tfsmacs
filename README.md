@@ -4,6 +4,8 @@
 This package deals only with the source control aspect, not PBIs, sprints,
 builds, or any other thing contained in TFS.
 
+**NOTICE: I'm not working daily with TFVC anymore. I will continue supporting the package, but if anyone is interested in taking over or just contributing new features, feel free to do so!**
+
 ## Table of contents
 
 <!--ts-->
